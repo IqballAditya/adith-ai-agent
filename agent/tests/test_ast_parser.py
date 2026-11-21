@@ -242,8 +242,27 @@ const formatPrice = (p) => `$${p}`;
     by_name = {s.name: s for s in symbols}
     assert "calculateTotal" in by_name
     assert by_name["calculateTotal"].symbol_type == "function"
+    assert by_name["calculateTotal"].language == "javascript"
     assert "formatPrice" in by_name
     assert by_name["formatPrice"].symbol_type == "function"
+    assert by_name["formatPrice"].language == "javascript"
+
+
+def test_go_type_alias_not_falsified_as_struct():
+    go_code = """package main
+type UserID string
+type Status int
+type User struct {
+    ID UserID
+}
+"""
+    symbols = ASTParser.parse_code(go_code, "go")
+    by_name = {s.name: s for s in symbols}
+    assert "User" in by_name
+    assert by_name["User"].symbol_type == "struct"
+    # Ensure type alias UserID and Status are not falsely classified as struct
+    assert "UserID" not in by_name
+    assert "Status" not in by_name
 
 
 def test_empty_and_whitespace_code():

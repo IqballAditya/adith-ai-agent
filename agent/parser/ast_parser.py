@@ -181,7 +181,7 @@ class ASTParser:
                     elif type_str == "interface_type":
                         sym_type = "interface"
                     else:
-                        sym_type = "struct"
+                        continue
 
                     start_l, end_l = _calc_lines(node if single_spec else spec)
                     sig = f"type {name} {sym_type}"
@@ -287,7 +287,7 @@ class ASTParser:
                         end_line=end_l,
                         signature=sig,
                         raw_code=raw,
-                        language="typescript",
+                        language=lang_name,
                     ))
 
             elif node.type == "lexical_declaration":
@@ -308,7 +308,7 @@ class ASTParser:
                                 end_line=end_l,
                                 signature=sig,
                                 raw_code=raw,
-                                language="typescript",
+                                language=lang_name,
                             ))
 
             elif node.type == "class_declaration":
@@ -326,7 +326,7 @@ class ASTParser:
                         end_line=end_l,
                         signature=sig,
                         raw_code=raw,
-                        language="typescript",
+                        language=lang_name,
                     ))
                     if body:
                         for m in body.children:
@@ -345,7 +345,7 @@ class ASTParser:
                                         end_line=m_end,
                                         signature=m_sig,
                                         raw_code=m_raw,
-                                        language="typescript",
+                                        language=lang_name,
                                     ))
 
             elif node.type == "interface_declaration":
@@ -363,7 +363,7 @@ class ASTParser:
                         end_line=end_l,
                         signature=sig,
                         raw_code=raw,
-                        language="typescript",
+                        language=lang_name,
                     ))
 
         for child in root.children:
