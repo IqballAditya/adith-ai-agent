@@ -202,6 +202,9 @@ class AgentOrchestrator:
                 return
 
         # 1. Reasoning: Analyze prompt & search vector memory
+        is_mod = _is_modification_request(prompt)
+        target_file = _extract_filename_from_prompt(prompt)
+
         yield {
             "type": "reasoning",
             "content": f"Analyzing user intent: '{prompt.strip()}' for workspace '{workspace_id}'.",
@@ -225,17 +228,21 @@ class AgentOrchestrator:
                 "type": "reasoning",
                 "content": f"Vector search identified {len(search_results)} relevant symbol(s): {top_matches}.",
             }
-        else:
+        elif is_mod or target_file:
             yield {
                 "type": "reasoning",
                 "content": "Vector search did not return indexed symbols; scanning workspace filesystem directly.",
             }
+        else:
+            yield {
+                "type": "reasoning",
+                "content": "General conversational query detected; formulating direct conversational response.",
+            }
 
         # 2. Identify target file and inspect AST
-        target_file = _extract_filename_from_prompt(prompt)
         if not target_file and search_results:
             target_file = search_results[0].file_path
-        if not target_file and _is_modification_request(prompt):
+        if not target_file and is_mod:
             target_file = "main.py"
 
         original_content = ""

@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import ast
 import json
+import math
+import operator
 import os
 import re
 from typing import Any, AsyncGenerator, Dict, List, Optional
 import httpx
 
 
-SYSTEM_PROMPT = """You are ADITH AI, a brilliant personal AI assistant and pair programmer created for Iqbal Aditya.
-You have two core modes:
-1. Conversational Mode: Friendly, natural, concise, and helpful. You reply to greetings ("hallo", "apa kabar") warmly, answer general questions clearly, and converse naturally in Indonesian or English matching the user's language.
-2. Coding & Technical Mode: Deeply knowledgeable in software engineering (Go, Python, TypeScript, Rust, Docker, Databases, System Design). When asked to solve problems, you explain the logic clearly, provide optimal code, and format code blocks cleanly.
+SYSTEM_PROMPT = """You are ADITH AI, a brilliant, friendly, and helpful personal AI assistant created for Iqbal Aditya.
+You answer any question naturally and warmly in Indonesian or English matching the user's prompt.
+You are never rigid or robotic. If asked general knowledge (like history, figures, casual chat), you answer the question directly and thoughtfully.
+When asked to write or modify code, you explain the logic clearly and produce clean code.
 """
 
 
@@ -33,8 +36,66 @@ def load_env_file(env_path: str = ".env") -> None:
         pass
 
 
+_MATH_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+
+def _eval_ast_math(node: ast.AST) -> float:
+    if isinstance(node, ast.Expression):
+        return _eval_ast_math(node.body)
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+    if isinstance(node, ast.BinOp):
+        op_type = type(node.op)
+        if op_type in _MATH_OPERATORS:
+            left = _eval_ast_math(node.left)
+            right = _eval_ast_math(node.right)
+            return _MATH_OPERATORS[op_type](left, right)
+    if isinstance(node, ast.UnaryOp):
+        op_type = type(node.op)
+        if op_type in _MATH_OPERATORS:
+            operand = _eval_ast_math(node.operand)
+            return _MATH_OPERATORS[op_type](operand)
+    raise ValueError("Not safe math")
+
+
+def _try_solve_math(text: str) -> Optional[tuple[str, str]]:
+    """Tries to extract and solve an arithmetic expression from user input."""
+    t = text.lower()
+    sqrt_match = re.search(r"(?:akar|sqrt|akar kuadrat dari)\s*(\d+(?:\.\d+)?)", t)
+    if sqrt_match:
+        val = float(sqrt_match.group(1))
+        res = math.isqrt(int(val)) if val.is_integer() else round(math.sqrt(val), 4)
+        return (f"√{sqrt_match.group(1)}", str(res))
+
+    expr_match = re.search(r"(\d+(?:\.\d+)?(?:\s*[\+\-\*\/\^%]\s*\d+(?:\.\d+)?)+)", t)
+    if expr_match:
+        raw_expr = expr_match.group(1).strip()
+        try:
+            py_expr = raw_expr.replace("^", "**")
+            parsed = ast.parse(py_expr, mode="eval")
+            res_val = _eval_ast_math(parsed)
+            if res_val.is_integer():
+                formatted = str(int(res_val))
+            else:
+                formatted = f"{res_val:.4g}"
+            return (raw_expr, formatted)
+        except Exception:
+            return None
+    return None
+
+
 class LLMClient:
-    """Multi-provider LLM client supporting Gemini, OpenAI, DeepSeek, Claude, Ollama, and offline conversational fallback."""
+    """Multi-provider LLM client supporting Gemini, OpenAI, DeepSeek, Claude, Groq, Ollama, and offline conversational fallback."""
 
     def __init__(self, env_path: str = ".env") -> None:
         load_env_file(env_path)
@@ -129,7 +190,7 @@ class LLMClient:
                 yield token
             return
 
-        # 5. Local Conversational & Knowledge Engine (when no external API key is configured)
+        # 5. Local Conversational & Knowledge Engine (Natural, flexible, never rigid!)
         async for token in self._local_conversational_engine(prompt, context_snippets):
             yield token
 
@@ -197,14 +258,251 @@ class LLMClient:
         prompt: str,
         context_snippets: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
-        """Intelligent local conversational engine when no external API key is set."""
+        """Intelligent, flexible conversational engine when no external API key is set."""
         p_clean = prompt.strip().lower()
 
-        # Greetings & Casual Chat
-        if any(w in p_clean for w in ["hallo", "halo", "hai", "hi", "hey", "hei"]):
+        # 0. Math Calculations (safe arithmetic & square roots)
+        math_res = _try_solve_math(p_clean)
+        if math_res:
+            expr, ans = math_res
+            yield f"Hasil perhitungan dari **{expr}** adalah **{ans}**! 🧮\n\n"
+            yield "Ada perhitungan matematika atau logika lain yang ingin saya bantu hitung?"
+            return
+
+        # 1. Indonesian Leaders & Key Public Figures
+        if "prabowo" in p_clean:
+            yield "### Prabowo Subianto\n\n"
+            yield "**Jenderal TNI (Purn.) H. Prabowo Subianto Djojohadikusumo** adalah **Presiden Republik Indonesia ke-8** yang dilantik pada **20 Oktober 2024** bersama Wakil Presiden Gibran Rakabuming Raka.\n\n"
+            yield "**Profil & Riwayat Singkat:**\n"
+            yield "- **Jabatan Saat Ini:** Presiden Republik Indonesia (2024–2029).\n"
+            yield "- **Jabatan Sebelumnya:** Menteri Pertahanan Republik Indonesia (2019–2024) pada masa Kabinet Indonesia Maju pimpinan Presiden Joko Widodo.\n"
+            yield "- **Karier Militer:** Purnawirawan perwira tinggi TNI Angkatan Darat, pernah menjabat sebagai Komandan Jenderal Kopassus dan Panglima Kostrad.\n"
+            yield "- **Politik:** Pendiri sekaligus Ketua Umum Partai Gerindra (Gerakan Indonesia Raya)."
+            return
+
+        if "jokowi" in p_clean or "joko widodo" in p_clean:
+            yield "### Joko Widodo (Jokowi)\n\n"
+            yield "**Ir. H. Joko Widodo** adalah **Presiden Republik Indonesia ke-7** yang menjabat selama dua periode dari **20 Oktober 2014 hingga 20 Oktober 2024**.\n\n"
+            yield "Sebelum menjadi Presiden, ia pernah menjabat sebagai Wali Kota Surakarta (Solo) dan Gubernur DKI Jakarta. Masa kepemimpinannya dikenal luas dengan pembangunan infrastruktur masif (jalan tol trans-Jawa dan trans-Sumatera, bendungan, bandara) serta inisiasi pemindahan ibu kota negara ke Ibu Kota Nusantara (IKN)."
+            return
+
+        if "gibran" in p_clean:
+            yield "### Gibran Rakabuming Raka\n\n"
+            yield "**Gibran Rakabuming Raka** adalah **Wakil Presiden Republik Indonesia ke-14** yang dilantik pada 20 Oktober 2024 mendampingi Presiden Prabowo Subianto. Sebelumnya, ia menjabat sebagai Wali Kota Surakarta (2021–2024) dan merupakan putra sulung dari Presiden ke-7 RI Joko Widodo."
+            return
+
+        if "sby" in p_clean or "susilo bambang" in p_clean:
+            yield "### Susilo Bambang Yudhoyono (SBY)\n\n"
+            yield "**Jenderal TNI (Purn.) Prof. Dr. H. Susilo Bambang Yudhoyono** adalah **Presiden Republik Indonesia ke-6** yang menjabat selama dua periode (2004–2014). Beliau mencatat sejarah sebagai presiden Indonesia pertama yang terpilih melalui pemilihan umum secara langsung oleh rakyat pada pemilu 2004."
+            return
+
+        if "megawati" in p_clean:
+            yield "### Megawati Soekarnoputri\n\n"
+            yield "**Prof. Dr. (H.C.) Hj. Diah Permata Megawati Setiawati Soekarnoputri** adalah **Presiden Republik Indonesia ke-5** (2001–2004) dan presiden wanita pertama di Indonesia. Beliau adalah putri dari proklamator Soekarno dan saat ini menjabat sebagai Ketua Umum PDI Perjuangan."
+            return
+
+        if "gus dur" in p_clean or "abdurrahman wahid" in p_clean:
+            yield "### KH. Abdurrahman Wahid (Gus Dur)\n\n"
+            yield "**Dr. (H.C.) K.H. Abdurrahman Wahid** adalah **Presiden Republik Indonesia ke-4** (1999–2001). Beliau dikenal luas sebagai tokoh pluralisme, pembela hak-hak minoritas, ulama karismatik Nahdlatul Ulama (NU), serta bapak toleransi bangsa yang penuh dengan humor dan kebijaksanaan mendalam."
+            return
+
+        if "habibie" in p_clean:
+            yield "### B.J. Habibie\n\n"
+            yield "**Prof. Dr. Ing. H. Bacharuddin Jusuf Habibie** adalah **Presiden Republik Indonesia ke-3** (1998–1999). Beliau adalah ilmuwan dan teknokrat dirgantara jenius berkelas dunia yang memimpin transisi demokrasi reformasi Indonesia dan merancang pesawat kebanggaan Indonesia, N-250 Gatotkaca."
+            return
+
+        if "soeharto" in p_clean or "suharto" in p_clean:
+            yield "### H.M. Soeharto\n\n"
+            yield "**Jenderal Besar TNI (Purn.) H. M. Soeharto** adalah **Presiden Republik Indonesia ke-2** yang memimpin selama masa Orde Baru (1967–1998). Dikenal dengan julukan 'Bapak Pembangunan Nasional' karena fokus kepemimpinannya pada stabilitas ekonomi, swasembada pangan, dan Repelita."
+            return
+
+        if "soekarno" in p_clean or "bung karno" in p_clean:
+            yield "### Ir. Soekarno (Bung Karno)\n\n"
+            yield "**Dr. (H.C.) Ir. H. Soekarno** adalah **Proklamator Kemerdekaan dan Presiden Republik Indonesia pertama** (1945–1967). Bersama Mohammad Hatta, beliau memproklamasikan kemerdekaan Indonesia pada 17 Agustus 1945 dan mencetuskan konsep Pancasila sebagai dasar falsafah negara."
+            return
+
+        if "hatta" in p_clean or "bung hatta" in p_clean:
+            yield "### Mohammad Hatta (Bung Hatta)\n\n"
+            yield "**Dr. (H.C.) Drs. H. Mohammad Hatta** adalah **Proklamator Kemerdekaan dan Wakil Presiden Republik Indonesia pertama**. Beliau dikenal sebagai Bapak Koperasi Indonesia, pemikir ekonomi kerakyatan, pejuang diplomasi kemerdekaan, dan sosok teladan integritas tinggi."
+            return
+
+        # 2. Famous Tech & World Figures
+        if "sam altman" in p_clean:
+            yield "### Sam Altman\n\n"
+            yield "**Samuel Harris Altman** adalah CEO dan salah satu pendiri **OpenAI**, organisasi riset AI terkemuka yang menciptakan **ChatGPT**, **GPT-4o**, dan **DALL-E**. Sebelumnya ia adalah presiden inkubator startup terkemuka dunia di Silicon Valley, Y Combinator."
+            return
+
+        if "elon musk" in p_clean:
+            yield "### Elon Musk\n\n"
+            yield "**Elon Reeve Musk** adalah pengusaha teknologi paling berpengaruh di dunia saat ini. Ia adalah CEO dan Chief Engineer di **SpaceX**, CEO di **Tesla**, pemilik platform sosial **X (Twitter)**, dan pendiri perusahaan AI **xAI (Grok)** serta **Neuralink**."
+            return
+
+        if "steve jobs" in p_clean:
+            yield "### Steve Jobs\n\n"
+            yield "**Steven Paul Jobs** (1955–2011) adalah pendiri legendaris dan mantan CEO **Apple Inc.** Bersama Steve Wozniak, ia merevolusi dunia komputasi personal, musik digital (iPod), telepon pintar (iPhone), dan animasi grafis komputer (Pixar)."
+            return
+
+        if "bill gates" in p_clean:
+            yield "### Bill Gates\n\n"
+            yield "**William Henry Gates III** adalah pendiri utama **Microsoft Corporation** yang mempopulerkan sistem operasi Windows. Saat ini ia mendedikasikan sebagian besar kekayaan dan waktunya untuk kegiatan filantropi global lewat Bill & Melinda Gates Foundation."
+            return
+
+        if "mark zuckerberg" in p_clean:
+            yield "### Mark Zuckerberg\n\n"
+            yield "**Mark Elliot Zuckerberg** adalah pendiri, chairman, dan CEO **Meta Platforms** (sebelumnya Facebook). Ia memimpin ekosistem media sosial terbesar dunia yang mencakup Facebook, Instagram, WhatsApp, serta inisiatif AI open-source (Llama)."
+            return
+
+        if "jensen huang" in p_clean:
+            yield "### Jensen Huang\n\n"
+            yield "**Jen-Hsun (Jensen) Huang** adalah co-founder, presiden, dan CEO **Nvidia Corporation**, raksasa semikonduktor yang memimpin revolusi komputasi GPU dan akselerator kecerdasan buatan (AI) di seluruh dunia saat ini."
+            return
+
+        if "linus torvalds" in p_clean:
+            yield "### Linus Torvalds\n\n"
+            yield "**Linus Benedict Torvalds** adalah insinyur perangkat lunak Finlandia-Amerika yang menciptakan kernel **Linux** (fondasi dari server cloud, Android, dan superkomputer dunia) serta sistem kontrol versi terdistribusi **Git**."
+            return
+
+        if "albert einstein" in p_clean or "einstein" in p_clean:
+            yield "### Albert Einstein\n\n"
+            yield "**Albert Einstein** (1879–1955) adalah fisikawan teoretis jenius peraih Nobel Fisika yang mencetuskan **Teori Relativitas Khusus dan Umum** serta persamaan massa-energi paling terkenal di dunia: **E = mc²**."
+            return
+
+        if "donald trump" in p_clean:
+            yield "### Donald Trump\n\n"
+            yield "**Donald John Trump** adalah politikus dan pengusaha asal Amerika Serikat yang menjabat sebagai Presiden AS ke-45 (2017–2021) dan kembali terpilih sebagai Presiden AS ke-47 setelah memenangkan Pemilihan Presiden AS 2024."
+            return
+
+        if "joe biden" in p_clean:
+            yield "### Joe Biden\n\n"
+            yield "**Joseph Robinette Biden Jr.** adalah politikus Amerika Serikat yang menjabat sebagai Presiden Amerika Serikat ke-46 (2021–2025). Sebelumnya ia adalah Wakil Presiden AS ke-47 di bawah Presiden Barack Obama."
+            return
+
+        # 3. Science & Nature
+        if "langit biru" in p_clean or "kenapa langit" in p_clean or "mengapa langit" in p_clean:
+            yield "### Mengapa Langit Berwarna Biru?\n\n"
+            yield "Langit tampak biru karena fenomena fisika optik bernama **Hamburan Rayleigh (Rayleigh Scattering)**.\n\n"
+            yield "1. Sinar matahari sebenarnya berwarna putih yang terdiri dari seluruh spektrum warna pelangi.\n"
+            yield "2. Ketika sinar matahari memasuki atmosfer bumi, cahaya tersebut bertabrakan dengan molekul gas (oksigen dan nitrogen).\n"
+            yield "3. Cahaya dengan panjang gelombang yang lebih pendek (seperti **biru** dan **ungu**) dihamburkan ke segala arah jauh lebih kuat daripada cahaya merah/kuning.\n"
+            yield "4. Karena mata manusia jauh lebih sensitif terhadap warna biru dibandingkan ungu, kita melihat langit di siang hari berwarna biru cerah!"
+            return
+
+        if "fotosintesis" in p_clean:
+            yield "### Apa Itu Fotosintesis?\n\n"
+            yield "**Fotosintesis** adalah proses biokimia di mana tumbuhan hijau, alga, dan beberapa jenis bakteri memproduksi makanannya sendiri dengan memanfaatkan energi cahaya matahari.\n\n"
+            yield "**Persamaan Kimia Utama:**\n"
+            yield "`6CO₂ (Karbon Dioksida) + 6H₂O (Air) + Cahaya Matahari ➔ C₆H₁₂O₆ (Glukosa) + 6O₂ (Oksigen)`\n\n"
+            yield "Proses ini berlangsung di dalam organel bernama **kloroplas** yang mengandung zat hijau daun (**klorofil**). Tanpa fotosintesis, bumi tidak akan memiliki suplai oksigen yang cukup untuk makhluk hidup!"
+            return
+
+        if "bumi bulat" in p_clean or "bumi datar" in p_clean or "bentuk bumi" in p_clean:
+            yield "### Apakah Bumi Bulat atau Datar?\n\n"
+            yield "Secara ilmiah dan empiris, **Bumi berbentuk bulat**—lebih tepatnya berbentuk **Geoid** atau *Oblate Spheroid* (sedikit pepat di kedua kutub dan menggelembung di bagian ekuator akibat gaya sentrifugal rotasi bumi).\n\n"
+            yield "**Bukti Nyata yang Bisa Dibuktikan:**\n"
+            yield "1. **Gerhana Bulan**: Bayangan bumi yang jatuh ke permukaan bulan selalu berbentuk lengkungan lingkaran.\n"
+            yield "2. **Kapal di Laut**: Saat kapal berlayar menjauh ke horizon, lambung kapal menghilang lebih dulu sebelum tiang kapalnya.\n"
+            yield "3. **Zona Waktu Berbeda**: Saat di Indonesia siang hari, di belahan bumi lain (seperti Amerika) adalah tengah malam.\n"
+            yield "4. **Foto Satelit & Luar Angkasa**: Ribuan foto satelit dan astronaut dari ISS secara visual membuktikan kelengkungan bumi."
+            return
+
+        if "tata surya" in p_clean or "planet" in p_clean:
+            yield "### Sistem Tata Surya Kita\n\n"
+            yield "Tata Surya kita berpusat pada sebuah bintang yaitu **Matahari**, yang dikelilingi oleh **8 Planet Utama** berdasarkan urutan jaraknya:\n\n"
+            yield "1. **Merkurius** - Planet terdekat dengan matahari, tanpa atmosfer tebal.\n"
+            yield "2. **Venus** - Planet terpanas karena efek rumah kaca ekstrem.\n"
+            yield "3. **Bumi** - Satu-satunya planet yang diketahui mendukung kehidupan.\n"
+            yield "4. **Mars** - Planet merah dengan eksplorasi rover aktif.\n"
+            yield "5. **Yupiter** - Planet gas raksasa terbesar dengan bintik merah raksasa.\n"
+            yield "6. **Saturnus** - Terkenal dengan sistem cincin es dan batu yang spektakuler.\n"
+            yield "7. **Uranus** - Planet es raksasa dengan sumbu rotasi miring ekstrem.\n"
+            yield "8. **Neptunus** - Planet terjauh dan terdingin dengan angin supersonik."
+            return
+
+        if "gravitasi" in p_clean or "gravity" in p_clean:
+            yield "### Apa Itu Gravitasi?\n\n"
+            yield "**Gravitasi** adalah gaya tarik universal alami yang terjadi antara semua materi yang memiliki massa di alam semesta.\n\n"
+            yield "- **Pandangan Newton**: Gravitasi adalah gaya tarik-menarik antara dua massa yang sebanding dengan perkalian massa keduanya dan berbanding terbalik dengan kuadrat jaraknya (`F = G * (m1*m2)/r²`).\n"
+            yield "- **Pandangan Einstein (Relativitas Umum)**: Gravitasi bukanlah sekadar 'tarikan tak terlihat', melainkan akibat dari kelengkungan ruang-waktu (*space-time curvature*) yang disebabkan oleh massa benda yang sangat besar (seperti matahari dan bumi)."
+            return
+
+        if any(w in p_clean for w in ["apa itu ai", "kecerdasan buatan", "machine learning", "deep learning"]):
+            yield "### Apa Itu Kecerdasan Buatan (AI)?\n\n"
+            yield "**Kecerdasan Buatan (Artificial Intelligence / AI)** adalah bidang ilmu komputer yang bertujuan menciptakan sistem yang mampu melakukan tugas-tugas yang biasanya membutuhkan kecerdasan manusia—seperti menalar, memahami bahasa, mengenali gambar, dan mengambil keputusan.\n\n"
+            yield "### Tingkatan Teknologi AI:\n"
+            yield "1. **Machine Learning (ML)**: Algoritma yang belajar mengenali pola dari data masa lalu tanpa harus diprogram secara kaku.\n"
+            yield "2. **Deep Learning (DL)**: Menggunakan jaringan saraf tiruan berlapis (*deep neural networks*) yang terinspirasi dari otak manusia.\n"
+            yield "3. **Large Language Models (LLM)**: Model AI seperti GPT-4, Claude, dan Gemini yang dilatih pada triliunan token teks untuk memahami dan menghasilkan bahasa alami."
+            return
+
+        # 4. Indonesian Food, Daily Life & Self-Care
+        if "nasi goreng" in p_clean:
+            yield "### Resep Rahasia Nasi Goreng Spesial Lezat 🍳\n\n"
+            yield "**Kunci Utama:** Gunakan nasi pera atau nasi dingin yang sudah disimpan di kulkas semalaman (agar tidak lembek saat diaduk di wajan).\n\n"
+            yield "**Bumbu Halus:**\n"
+            yield "- 4 butir bawang merah & 2 siung bawang putih\n"
+            yield "- 3 buah cabai rawit (sesuai selera pedas)\n"
+            yield "- 1/2 sdt terasi bakar (opsional tapi bikin gurih harum)\n"
+            yield "- Garam, merica, dan kaldu jamur secukupnya\n\n"
+            yield "**Cara Masak Cepat:**\n"
+            yield "1. Panaskan minyak di wajan dengan api besar (*wok heat*).\n"
+            yield "2. Orak-arik 1 butir telur sampai harum, lalu masukkan bumbu halus dan tumis sampai wangi matang.\n"
+            yield "3. Masukkan nasi dingin, beri kecap manis dan sedikit kecap asin di pinggir wajan agar ada aroma karamel asap (*wok hei*).\n"
+            yield "4. Aduk cepat merata selama 2-3 menit dengan api besar. Sajikan selagi hangat dengan taburan bawang goreng dan kerupuk!"
+            return
+
+        if "rendang" in p_clean:
+            yield "### Rendang Daging Khas Minangkabau 🍛\n\n"
+            yield "**Rendang** adalah salah satu hidangan terenak di dunia versi CNN Travel. Filosofi rendang Minang mengandalkan kesabaran memasak perlahan (*slow cooking*) menggunakan santan murni kental dan aneka rempah (lengkuas, serai, jahe, daun kunyit, daun jeruk, dan cabai merah giling).\n\n"
+            yield "**Tiga Tahapan Rendang:**\n"
+            yield "1. **Gulai**: Kuah masih encer berwarna kuning kemerahan.\n"
+            yield "2. **Kalio**: Santan mulai mengental, berminyak, dan berwarna cokelat muda.\n"
+            yield "3. **Rendang Sejati**: Minyak terserap habis, bumbu berubah warna menjadi cokelat gelap kehitaman yang kering dan tahan berminggu-minggu tanpa bahan pengawet!"
+            return
+
+        if "kopi" in p_clean or "buat kopi" in p_clean:
+            yield "### Tips Menyeduh Kopi Enak Ala Barista ☕\n\n"
+            yield "1. **Rasio Kopi ke Air**: Gunakan rasio emas **1:15** atau **1:16** (contoh: 15 gram bubuk kopi untuk 225-240 ml air).\n"
+            yield "2. **Suhu Air**: Jangan gunakan air mendidih 100°C karena akan membakar kopi dan membuatnya pahit sepat. Suhu ideal adalah **90°C – 94°C** (diamkan air mendidih sekitar 45 detik sebelum dituang).\n"
+            yield "3. **Blooming**: Tuang 30-40 ml air panas pertama dan diamkan selama 30-45 detik agar gas CO₂ dari kopi keluar dengan sempurna sebelum seduhan utama."
+            return
+
+        if any(w in p_clean for w in ["tips belajar", "tips produktif", "pomodoro"]):
+            yield "### Tips Belajar & Produktivitas Maksimal 🎯\n\n"
+            yield "1. **Teknik Pomodoro**: Fokus belajar/coding penuh selama 25 menit (tanpa notifikasi HP), lalu istirahat santai 5 menit. Setelah 4 sesi, ambil istirahat panjang 15-30 menit.\n"
+            yield "2. **Feynman Technique**: Jelaskan konsep yang sedang kamu pelajari kepada orang awam atau bayangkan kamu mengajar anak kecil dengan kata-kata sederhana. Jika ada bagian yang bingung, di situlah letak gap pemahamanmu.\n"
+            yield "3. **Active Recall & Spaced Repetition**: Jangan hanya membaca ulang buku/kode, tapi uji dirimu sendiri dengan membuat catatan kuis dan ulangi dalam interval beberapa hari."
+            return
+
+        if any(w in p_clean for w in ["motivasi", "semangat", "capek", "lelah", "menyerah"]):
+            yield "### Pengingat Untukmu Hari Ini ✨\n\n"
+            yield "*'Setiap langkah kecil yang kamu ambil hari ini, betapapun lambatnya terasa, sedang membangun pondasi kesuksesan besar di masa depan.'*\n\n"
+            yield "Merasa lelah itu manusiawi, tapi jangan pernah menyerah. Luangkan waktu sejenak untuk tarik napas dalam-dalam, minum air putih, dan istirahatkan pikiran. Studio ini dan saya siap mendukungmu kembali kapan saja kamu siap melangkah lagi! 💪🚀"
+            return
+
+        # 5. Humor, Jokes & Fun
+        if any(w in p_clean for w in ["lelucon", "jokes", "lucu", "tebak-tebakan", "cerita lucu"]):
+            yield "### Ini Tebak-Tebakan Santai Buatmu! 😄\n\n"
+            yield "**Tanya:** *Kenapa programmer suka pakai kacamata hitam di malam hari?*\n\n"
+            yield "**Jawab:** *Karena kode yang mereka tulis terlalu terang benderang masa depannya!* 😎💻\n\n"
+            yield "---\n"
+            yield "**Satu lagi:**\n"
+            yield "**Tanya:** *Sayur apa yang jago bela diri?*\n"
+            yield "**Jawab:** *Brokoli Lee!* 🥦🥋"
+            return
+
+        if any(w in p_clean for w in ["pantun", "gombal"]):
+            yield "### Pantun Spesial Buatmu! 🌸\n\n"
+            yield "*Jalan-jalan ke kota Blitar,*\n"
+            yield "*Jangan lupa beli sukun.*\n"
+            yield "*Kalau ingin jadi programmer pintar,*\n"
+            yield "*Belajar dan coding-lah dengan tekun!* 🚀✨"
+            return
+
+        # 6. Greetings & Social Chat
+        if any(w in p_clean for w in ["hallo", "halo", "hai", "hi", "hey", "hei", "pagi", "siang", "sore", "malam", "assalamualaikum"]):
             yield "Halo Iqbal! 👋 Senang bertemu denganmu.\n\n"
             yield "Saya **ADITH AI**, asisten coding dan partner berpikir pribadimu di studio ini. "
-            yield "Ada yang bisa saya bantu hari ini? Kamu bisa menyuruh saya menulis kode, refactor fungsi, menjawab pertanyaan seputar sistem arsitektur, atau sekadar ngobrol santai!"
+            yield "Ada yang bisa saya bantu hari ini? Kamu bisa menyuruh saya menulis kode, refactor fungsi, menjawab pertanyaan seputar sains, sejarah, tokoh dunia, matematika, atau sekadar ngobrol santai!"
             return
 
         if any(w in p_clean for w in ["apa kabar", "gimana kabarnya", "how are you"]):
@@ -219,14 +517,14 @@ class LLMClient:
             yield "1. **Codebase Understanding**: Memahami struktur kode fungsi, struct, dan kelas menggunakan Tree-sitter AST.\n"
             yield "2. **Vector Memory**: Menyimpan dan mencari konteks kodemu lewat Qdrant Vector DB.\n"
             yield "3. **Safe Diff Execution**: Mengusulkan perubahan kode (diff patch) yang bisa kamu terima dengan satu klik (*Accept Changes* / tombol `Tab`).\n"
-            yield "4. **General Conversation**: Menjawab segala pertanyaan dari hal ringan hingga tugas rekayasa perangkat lunak berskala besar."
+            yield "4. **General Conversation**: Menjawab segala pertanyaan dari obrolan santai, sejarah, tokoh dunia, matematika, hingga tugas coding rumit."
             return
 
         if any(w in p_clean for w in ["terima kasih", "makasih", "thanks", "thank you"]):
             yield "Sama-sama, Iqbal! Senang bisa membantumu. Jika butuh bantuan lain atau mau nambah fitur baru, langsung panggil saya lagi ya! 😊"
             return
 
-        # General Programming / Concept Explanations
+        # 7. Software Engineering & Architecture
         if "microservice" in p_clean or "microservices" in p_clean:
             yield "### Apa Itu Arsitektur Microservices?\n\n"
             yield "**Microservices** adalah pola arsitektur di mana aplikasi besar dipecah menjadi kumpulan layanan-layanan kecil yang mandiri (*decoupled*), masing-masing menjalankan proses bisnis spesifik dan berkomunikasi melalui protokol jaringan ringan (seperti HTTP REST, gRPC, atau Message Broker seperti Kafka/NATS).\n\n"
@@ -236,21 +534,53 @@ class LLMClient:
             yield "- **Fault Isolation**: Jika satu service error, sistem utama tidak langsung mati total."
             return
 
-        if "docker" in p_clean:
+        if "docker" in p_clean or "container" in p_clean:
             yield "### Apa Itu Docker & Mengapa Sangat Populer?\n\n"
             yield "**Docker** adalah platform kontainerisasi yang membungkus aplikasi beserta seluruh dependensinya (library, konfigurasi runtime, dan binary) ke dalam satu wadah terisolasi bernama **Container**.\n\n"
             yield "**Prinsip Utama:** *'Build Once, Run Anywhere'*. Menghilangkan masalah klasik *'di laptop saya jalan, tapi di server kok error'*. Di ADITH AI Studio, kita sudah siapkan arsitektur Dockerfile multi-stage agar nanti bisa di-deploy ke server cloud dengan mudah!"
             return
 
-        # Default Helpful Intelligent Assistant Response
-        yield f"Saya telah menerima pertanyaanmu: *\"{prompt.strip()}\"*\n\n"
-        if context_snippets:
-            yield f"💡 **Konteks Codebase Terdeteksi:**\n{context_snippets[:300]}...\n\n"
+        if "kubernetes" in p_clean or "k8s" in p_clean:
+            yield "### Apa Itu Kubernetes (K8s)?\n\n"
+            yield "**Kubernetes (K8s)** adalah platform open-source orkestrasi kontainer yang awalnya dikembangkan oleh Google. Fungsinya adalah mengotomatisasi deployment, scaling, load balancing, dan manajemen ratusan hingga ribuan kontainer Docker di cluster server."
+            return
 
-        yield "Sebagai asisten personalmu di **ADITH AI STUDIO**, saya siap membantumu menyelesaikan tugas ini! "
-        yield "Apakah kamu ingin saya membuatkan rancangan kodenya, menjelaskan konsep logikanya langkah demi langkah, atau membuatkan file baru di workspace ini?\n\n"
+        if "rest api" in p_clean or "apa itu api" in p_clean:
+            yield "### Apa Itu REST API?\n\n"
+            yield "**REST (Representational State Transfer) API** adalah standar antarmuka komunikasi antar aplikasi menggunakan protokol HTTP standar.\n\n"
+            yield "- **GET**: Mengambil data resource (contoh: `GET /users`).\n"
+            yield "- **POST**: Membuat data baru (contoh: `POST /users`).\n"
+            yield "- **PUT / PATCH**: Memperbarui data yang ada.\n"
+            yield "- **DELETE**: Menghapus data.\n"
+            yield "Data yang dikirim dan diterima biasanya diformat dalam bentuk **JSON**."
+            return
+
+        if "sql" in p_clean or "nosql" in p_clean or "database" in p_clean:
+            yield "### SQL vs NoSQL: Kapan Harus Memilih yang Mana?\n\n"
+            yield "- **SQL (Relational DB, contoh: PostgreSQL, MySQL)**: Menggunakan tabel bertipe data ketat (*strict schema*), mendukung transaksi ACID penuh. Sangat cocok untuk data finansial, e-commerce, dan sistem yang membutuhkan konsistensi tinggi.\n"
+            yield "- **NoSQL (Non-Relational, contoh: MongoDB, Redis, Qdrant)**: Skema fleksibel tanpa relasi tabel kaku (*document, key-value, vector*). Sangat cocok untuk high-throughput data, caching cepat, atau pencarian kemiripan AI (seperti Qdrant di studio ini)."
+            return
+
+        if "git" in p_clean or "github" in p_clean:
+            yield "### Dasar Penggunaan Git & GitHub\n\n"
+            yield "**Git** adalah sistem kontrol versi untuk mencatat riwayat perubahan file kode, sedangkan **GitHub** adalah platform hosting cloud untuk menyimpan repositori Git tersebut.\n\n"
+            yield "**Perintah Esensial:**\n"
+            yield "- `git status`: Melihat file mana yang diubah atau belum di-commit.\n"
+            yield "- `git add .`: Memasukkan semua perubahan ke staging area.\n"
+            yield "- `git commit -m \"pesan commit\"`: Menyimpan rekaman perubahan dengan pesan jelas.\n"
+            yield "- `git push origin main`: Mengirim commit lokal ke repositori remote di GitHub."
+            return
+
+        # 8. Natural Open-Ended Conversation (Not rigid, no unsolicited coding questions!)
+        yield f"Mengenai **\"{prompt.strip()}\"**:\n\n"
+        yield "Pertanyaan yang menarik! Saat ini saya beroperasi menggunakan mesin percakapan lokal internal **ADITH AI**.\n\n"
+        yield "Sebagai asisten pribadimu, saya selalu siap mendiskusikan topik apa pun—mulai dari ide proyek, logika pemrograman, strategi arsitektur sistem, hingga tanya jawab santai!\n\n"
+        if context_snippets:
+            yield f"💡 *Konteks Codebase Terkait di Workspace:*\n{context_snippets[:300]}...\n\n"
+
+        yield "Kamu bisa menanyakan lebih detail bagian mana yang ingin kita bahas, atau kita bisa langsung mulai mengerjakan sesuatu di studio ini! 🚀\n\n"
         yield "---\n"
-        yield "*(💡 **Tips:** Untuk menghubungkan kemampuan open-domain tanpa batas seperti ChatGPT / Claude asli ke seluruh topik di dunia, kamu cukup menambahkan `GEMINI_API_KEY=...` atau `OPENAI_API_KEY=...` di file `.env` studio ini!)*"
+        yield "💡 **Tips:** Untuk membuka kemampuan menjawab jutaan data internet real-time tanpa batas (seperti ChatGPT / Gemini asli), kamu bisa memasukkan **Gemini API Key (GRATIS)** di file `.env` studio ini (`GEMINI_API_KEY=...`)."
 
 
 _DEFAULT_CLIENT: Optional[LLMClient] = None

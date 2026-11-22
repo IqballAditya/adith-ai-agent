@@ -173,7 +173,7 @@ trap {
 # -------------------------------------------------------------
 try {
     Write-Host "`n[3/5] Starting Python Agent engine on port $AgentPort..." -ForegroundColor Yellow
-    $agentArgs = "-m", "uvicorn", "agent.server:app", "--host", "127.0.0.1", "--port", "$AgentPort"
+    $agentArgs = "-m", "uvicorn", "agent.server:app", "--host", "127.0.0.1", "--port", "$AgentPort", "--reload"
 
     $agentStartInfo = New-Object System.Diagnostics.ProcessStartInfo
     $agentStartInfo.FileName = $pythonCmd.Source
