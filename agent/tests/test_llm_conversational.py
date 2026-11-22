@@ -2,12 +2,21 @@ import pytest
 from agent.llm.client import LLMClient
 
 
+@pytest.fixture
+def local_client():
+    client = LLMClient(env_path="nonexistent.env")
+    client.gemini_key = None
+    client.openai_key = None
+    client.deepseek_key = None
+    client.anthropic_key = None
+    client.groq_key = None
+    return client
+
+
 @pytest.mark.anyio
-async def test_llm_conversational_greetings():
-    client = LLMClient()
-    # Test greeting
+async def test_llm_conversational_greetings(local_client):
     chunks = []
-    async for chunk in client.stream_response("hallo"):
+    async for chunk in local_client.stream_response("hallo"):
         chunks.append(chunk)
     reply = "".join(chunks)
     assert "Halo" in reply
@@ -15,10 +24,9 @@ async def test_llm_conversational_greetings():
 
 
 @pytest.mark.anyio
-async def test_llm_conversational_who_are_you():
-    client = LLMClient()
+async def test_llm_conversational_who_are_you(local_client):
     chunks = []
-    async for chunk in client.stream_response("kamu siapa?"):
+    async for chunk in local_client.stream_response("kamu siapa?"):
         chunks.append(chunk)
     reply = "".join(chunks)
     assert "ADITH AI" in reply
@@ -26,20 +34,18 @@ async def test_llm_conversational_who_are_you():
 
 
 @pytest.mark.anyio
-async def test_llm_conversational_general_concept():
-    client = LLMClient()
+async def test_llm_conversational_general_concept(local_client):
     chunks = []
-    async for chunk in client.stream_response("apa itu microservices?"):
+    async for chunk in local_client.stream_response("apa itu microservices?"):
         chunks.append(chunk)
     reply = "".join(chunks)
     assert "Microservices" in reply
 
 
 @pytest.mark.anyio
-async def test_llm_conversational_prabowo():
-    client = LLMClient()
+async def test_llm_conversational_prabowo(local_client):
     chunks = []
-    async for chunk in client.stream_response("siapa itu prabowo?"):
+    async for chunk in local_client.stream_response("siapa itu prabowo?"):
         chunks.append(chunk)
     reply = "".join(chunks)
     assert "Prabowo Subianto" in reply
@@ -47,28 +53,26 @@ async def test_llm_conversational_prabowo():
 
 
 @pytest.mark.anyio
-async def test_llm_conversational_math():
-    client = LLMClient()
+async def test_llm_conversational_math(local_client):
     chunks = []
-    async for chunk in client.stream_response("hitung 5 * 25"):
+    async for chunk in local_client.stream_response("hitung 5 * 25"):
         chunks.append(chunk)
     reply = "".join(chunks)
     assert "125" in reply
 
 
 @pytest.mark.anyio
-async def test_llm_conversational_science_and_fallback():
-    client = LLMClient()
+async def test_llm_conversational_science_and_fallback(local_client):
     # Test science
     chunks = []
-    async for chunk in client.stream_response("kenapa langit biru?"):
+    async for chunk in local_client.stream_response("kenapa langit biru?"):
         chunks.append(chunk)
     reply = "".join(chunks)
     assert "Hamburan Rayleigh" in reply
 
     # Test open fallback (never rigid)
     chunks_open = []
-    async for chunk in client.stream_response("ceritakan hal acak"):
+    async for chunk in local_client.stream_response("ceritakan hal acak"):
         chunks_open.append(chunk)
     reply_open = "".join(chunks_open)
     assert "Apakah kamu ingin saya membuatkan rancangan kodenya" not in reply_open

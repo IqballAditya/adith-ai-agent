@@ -119,7 +119,7 @@ class LLMClient:
     def get_provider_info(self) -> dict[str, Any]:
         """Returns active provider status."""
         if self.gemini_key:
-            return {"provider": "gemini", "model": "gemini-1.5-flash", "active": True}
+            return {"provider": "gemini", "model": "gemini-3.1-flash-lite-preview", "active": True}
         if self.openai_key:
             return {"provider": "openai", "model": "gpt-4o", "active": True}
         if self.deepseek_key:
@@ -140,10 +140,11 @@ class LLMClient:
         """Streams text chunks token-by-token from the active LLM provider, or falls back to intelligent local engine."""
         # 1. Google Gemini (via official OpenAI-compatible endpoint)
         if self.gemini_key:
+            gemini_model = model or "gemini-3.1-flash-lite-preview"
             async for token in self._stream_openai_compatible(
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai",
                 api_key=self.gemini_key,
-                model_name=model or "gemini-1.5-flash",
+                model_name=gemini_model,
                 prompt=prompt,
                 system_prompt=system_prompt,
                 context_snippets=context_snippets,
