@@ -12,6 +12,18 @@
   },
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "agent"
+      }
+    },
+    {
+      "source": "/health",
+      "destination": {
+        "service": "agent"
+      }
+    },
+    {
       "source": "/(.*)",
       "destination": {
         "service": "web"
