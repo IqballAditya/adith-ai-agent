@@ -16,7 +16,7 @@ import { ChatMessage, DiffSuggestion } from '../types'
 interface ChatPanelProps {
   messages: ChatMessage[]
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
-  onAcceptDiff: (path: string, modified: string) => Promise<boolean>
+  onAcceptDiff: (path: string, modified: string, original?: string) => Promise<boolean>
   selectedModel: string
   onSelectModel: (model: string) => void
   activeFilePath?: string
@@ -216,7 +216,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     async (messageId: string, diff: DiffSuggestion) => {
       setAcceptingPath(diff.path)
       try {
-        const ok = await onAcceptDiff(diff.path, diff.modified)
+        const ok = await onAcceptDiff(diff.path, diff.modified, diff.original)
         if (ok) {
           setMessages((prev) =>
             prev.map((msg) =>

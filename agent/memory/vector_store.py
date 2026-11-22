@@ -131,7 +131,9 @@ class VectorStore:
 
             points.append(PointStruct(id=point_id, vector=vector, payload=payload))
 
-        self.client.upsert(collection_name=self.collection_name, points=points)
+        for i in range(0, len(points), 100):
+            batch = points[i : i + 100]
+            self.client.upsert(collection_name=self.collection_name, points=batch)
         return len(points)
 
     def search(

@@ -24,6 +24,7 @@ func getEnv(key, defaultVal string) string {
 }
 
 func main() {
+	hostFlag := flag.String("host", getEnv("HOST", "127.0.0.1"), "HTTP gateway host")
 	portFlag := flag.String("port", getEnv("PORT", "8090"), "HTTP gateway port")
 	workspaceFlag := flag.String("workspace", getEnv("WORKSPACE_ROOT", "."), "Workspace root directory")
 	agentFlag := flag.String("agent", getEnv("AGENT_URL", "http://localhost:5050"), "Python Agent URL")
@@ -47,7 +48,7 @@ func main() {
 
 	server := api.NewServer(db, *agentFlag, absWorkspace)
 
-	addr := fmt.Sprintf("0.0.0.0:%s", *portFlag)
+	addr := fmt.Sprintf("%s:%s", *hostFlag, *portFlag)
 	httpServer := &http.Server{
 		Addr:         addr,
 		Handler:      server,

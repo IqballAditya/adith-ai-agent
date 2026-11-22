@@ -367,13 +367,28 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	reasoningMsg := fmt.Sprintf("Offline fallback reasoning: workspace context analyzed for prompt %q", req.Prompt)
 	responseMsg := fmt.Sprintf("I analyzed your request offline: %s. Python agent engine is currently unreachable.", req.Prompt)
 
-	fmt.Fprintf(w, "event: reasoning\ndata: {\"type\": \"reasoning\", \"content\": %q}\n\n", reasoningMsg)
+	reasoningBytes, _ := json.Marshal(map[string]interface{}{
+		"type":    "reasoning",
+		"content": reasoningMsg,
+	})
+	fmt.Fprintf(w, "event: reasoning\ndata: %s\n\n", reasoningBytes)
 	flusher.Flush()
 
-	fmt.Fprintf(w, "event: message\ndata: {\"type\": \"message\", \"content\": %q}\n\n", responseMsg)
+	msgBytes, _ := json.Marshal(map[string]interface{}{
+		"type":    "message",
+		"content": responseMsg,
+	})
+	fmt.Fprintf(w, "event: message\ndata: %s\n\n", msgBytes)
 	flusher.Flush()
 
-	fmt.Fprintf(w, "event: done\ndata: {\"type\": \"done\", \"usage\": {\"prompt_tokens\": 12, \"completion_tokens\": 24}}\n\n")
+	doneBytes, _ := json.Marshal(map[string]interface{}{
+		"type": "done",
+		"usage": map[string]interface{}{
+			"prompt_tokens":     12,
+			"completion_tokens": 24,
+		},
+	})
+	fmt.Fprintf(w, "event: done\ndata: %s\n\n", doneBytes)
 	flusher.Flush()
 
 	s.logChatInteraction(req.WorkspaceID, req.Prompt, reasoningMsg, responseMsg, 12, 24)

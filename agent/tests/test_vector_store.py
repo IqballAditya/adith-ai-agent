@@ -216,3 +216,28 @@ def test_file_storage_persistence(tmp_path):
     finally:
         reopened.close()
 
+
+def test_index_symbols_batching(memory_store):
+    # Test batch upserting over 100 symbols (e.g. 250 symbols)
+    symbols = [
+        CodeSymbol(
+            name=f"func_{i}",
+            symbol_type="function",
+            start_line=i * 5,
+            end_line=i * 5 + 4,
+            signature=f"def func_{i}()",
+            raw_code=f"def func_{i}():\n    return {i}",
+            language="python",
+        )
+        for i in range(250)
+    ]
+    indexed_count = memory_store.index_symbols(
+        workspace_id="ws_batch",
+        symbols=symbols,
+        file_path="src/large_file.py",
+    )
+    assert indexed_count == 250
+    res = memory_store.search("ws_batch", query="func_150", limit=5)
+    assert len(res) > 0
+    assert any("func_150" in r.symbol_name for r in res)
+

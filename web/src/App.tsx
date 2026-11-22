@@ -113,11 +113,11 @@ export const App: React.FC = () => {
 
   // Accept diff from ChatPanel
   const handleAcceptDiff = useCallback(
-    async (path: string, modified: string): Promise<boolean> => {
+    async (path: string, modified: string, original?: string): Promise<boolean> => {
       try {
         // Find current original content if open
         const existingTab = tabs.find((t) => t.path === path)
-        const originalContent = existingTab ? existingTab.content : ''
+        const originalContent = (original !== undefined && original !== "") ? original : (existingTab ? existingTab.content : "");
 
         const res = await fetch('/api/diff/accept', {
           method: 'POST',

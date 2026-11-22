@@ -382,3 +382,43 @@ func TestTerminalWebSocket(t *testing.T) {
 		t.Logf("Terminal output received (type %d): %s", messageType, string(msg))
 	}
 }
+
+func TestTerminalWebSocketOriginCheck(t *testing.T) {
+	db := setupTestDB(t)
+	ws := setupTestWorkspace(t)
+	server := api.NewServer(db, "http://localhost:5050", ws)
+
+	ts := httptest.NewServer(server)
+	defer ts.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/api/terminal"
+
+	// 1. Untrusted origin should be rejected with 403 Forbidden
+	untrustedHeader := make(http.Header)
+	untrustedHeader.Set("Origin", "http://evil-attacker.com")
+	_, resp, err := websocket.DefaultDialer.Dial(wsURL, untrustedHeader)
+	if err == nil {
+		t.Fatalf("expected dial from evil origin to fail, but it succeeded")
+	}
+	if resp != nil && resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected HTTP 403 Forbidden for untrusted origin, got %d", resp.StatusCode)
+	}
+
+	// 2. Trusted localhost origin should succeed
+	trustedHeader := make(http.Header)
+	trustedHeader.Set("Origin", "http://localhost:5173")
+	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, trustedHeader)
+	if err != nil {
+		t.Fatalf("expected dial from localhost to succeed (resp: %v): %v", resp, err)
+	}
+	conn.Close()
+
+	// 3. Trusted 127.0.0.1 origin should succeed
+	trustedHeader2 := make(http.Header)
+	trustedHeader2.Set("Origin", "http://127.0.0.1:8090")
+	conn2, resp, err := websocket.DefaultDialer.Dial(wsURL, trustedHeader2)
+	if err != nil {
+		t.Fatalf("expected dial from 127.0.0.1 to succeed (resp: %v): %v", resp, err)
+	}
+	conn2.Close()
+}
