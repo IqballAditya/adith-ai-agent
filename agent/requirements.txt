@@ -4,3 +4,7 @@ tree-sitter-go>=0.21.0
 tree-sitter-typescript>=0.21.0
 pytest>=7.0.0
 qdrant-client>=1.7.0
+fastapi>=0.100.0
+uvicorn>=0.20.0
+sse-starlette>=1.6.0
+httpx>=0.24.0
