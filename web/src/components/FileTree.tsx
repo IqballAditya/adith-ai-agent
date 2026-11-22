@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   ChevronRight,
   ChevronDown,
@@ -12,6 +12,7 @@ import {
   Database,
 } from 'lucide-react'
 import { FileNode } from '../types'
+import { VIRTUAL_TREE } from '../virtualWorkspace'
 
 interface FileTreeProps {
   activePath?: string
@@ -142,31 +143,40 @@ const TreeNode: React.FC<TreeNodeProps> = ({
 export const FileTree: React.FC<FileTreeProps> = ({ activePath, onSelectFile }) => {
   const [treeData, setTreeData] = useState<FileNode[]>([])
   const [loading, setLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string | null>(null)
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set())
   const [filterQuery, setFilterQuery] = useState<string>('')
 
   const fetchTree = useCallback(async () => {
     setLoading(true)
-    setError(null)
     try {
       const res = await fetch('/api/tree')
-      if (!res.ok) {
-        throw new Error(`Failed to fetch file tree (HTTP ${res.status})`)
+      let data: FileNode[] = []
+      if (res.ok) {
+        data = await res.json()
+      } else {
+        data = VIRTUAL_TREE
       }
-      const data: FileNode[] = await res.json()
-      setTreeData(data || [])
+      const finalTree = data && data.length > 0 ? data : VIRTUAL_TREE
+      setTreeData(finalTree)
 
       // Auto-expand top level directories
       const initialExpanded = new Set<string>()
-      data.forEach((node) => {
+      finalTree.forEach((node) => {
         if (node.is_dir) {
           initialExpanded.add(node.path)
         }
       })
       setExpandedDirs((prev) => (prev.size === 0 ? initialExpanded : prev))
-    } catch (err: any) {
-      setError(err.message || 'Unknown error fetching file tree')
+    } catch {
+      // Graceful fallback to virtual workspace if offline or on static Vercel host
+      setTreeData(VIRTUAL_TREE)
+      const initialExpanded = new Set<string>()
+      VIRTUAL_TREE.forEach((node) => {
+        if (node.is_dir) {
+          initialExpanded.add(node.path)
+        }
+      })
+      setExpandedDirs((prev) => (prev.size === 0 ? initialExpanded : prev))
     } finally {
       setLoading(false)
     }
@@ -223,21 +233,6 @@ export const FileTree: React.FC<FileTreeProps> = ({ activePath, onSelectFile }) 
         {loading && treeData.length === 0 ? (
           <div className="p-4 text-center text-xs text-slate-500 font-mono">
             Loading files...
-          </div>
-        ) : error ? (
-          <div className="p-3 text-xs text-rose-400 bg-rose-500/10 rounded m-2">
-            <p className="font-semibold">Failed to load tree:</p>
-            <p className="text-[11px] mt-1">{error}</p>
-            <button
-              onClick={fetchTree}
-              className="mt-2 text-[10px] text-indigo-400 underline hover:text-indigo-300"
-            >
-              Retry
-            </button>
-          </div>
-        ) : treeData.length === 0 ? (
-          <div className="p-4 text-center text-xs text-slate-500 font-mono">
-            Workspace is empty
           </div>
         ) : (
           treeData.map((node) => (

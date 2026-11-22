@@ -1,33 +1,19 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "agent": {
-      "root": "agent",
-      "framework": "fastapi"
-    },
-    "web": {
-      "root": "web",
-      "framework": "vite"
-    }
-  },
+  "buildCommand": "cd web && npm install && npm run build",
+  "outputDirectory": "web/dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": {
-        "service": "agent"
-      }
-    },
-    {
       "source": "/health",
-      "destination": {
-        "service": "agent"
-      }
+      "destination": "/api/health"
     },
     {
-      "source": "/(.*)",
-      "destination": {
-        "service": "web"
-      }
+      "source": "/api/diff/accept",
+      "destination": "/api/diff/accept"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     }
   ]
 }
