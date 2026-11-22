@@ -11,10 +11,27 @@ export interface LocalAIResult {
   }
 }
 
+export function getGeminiKey(): string {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('adith_gemini_api_key')
+    if (saved && saved.trim()) return saved.trim()
+  }
+  const metaEnv = (import.meta as any)?.env?.VITE_GEMINI_API_KEY
+  if (metaEnv) {
+    return String(metaEnv).trim()
+  }
+  return ''
+}
+
+export function setGeminiKey(key: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('adith_gemini_api_key', key.trim())
+  }
+}
+
 // Simple safe math solver
 function trySolveMath(prompt: string): [string, number] | null {
   const p = prompt.trim().toLowerCase()
-  // Matches basic expressions like "10 + 5", "100 / 4", "15 * 8", "50 - 25"
   const m = p.match(/^([0-9]+(?:\.[0-9]+)?)\s*([\+\-\*\/])\s*([0-9]+(?:\.[0-9]+)?)$/)
   if (!m) return null
   const a = parseFloat(m[1])
@@ -29,6 +46,89 @@ function trySolveMath(prompt: string): [string, number] | null {
     res = a / b
   }
   return [`${a} ${op} ${b}`, res]
+}
+
+export async function askLiveAI(prompt: string, model: string): Promise<LocalAIResult> {
+  const key = getGeminiKey()
+  const p = prompt.trim()
+
+  // 1. Math solving (instant)
+  const mathRes = trySolveMath(p.toLowerCase())
+  if (mathRes) {
+    const [expr, val] = mathRes
+    return {
+      reasoning: `Detected arithmetic calculation expression: "${expr}"\nEvaluating with floating-point precision...\nResult: ${val}`,
+      content: `Hasil perhitungan dari **${expr}** adalah **${val}**! 🧮\n\nAda perhitungan atau rumus matematika lain yang ingin kamu hitung?`,
+    }
+  }
+
+  // 2. Call Google Gemini API Live if key exists
+  if (key) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${key}`
+      const body = {
+        system_instruction: {
+          parts: [
+            {
+              text: `You are ADITH AI, an advanced, highly capable AI software engineer and developer companion in ADITH AI STUDIO created for Iqbal Aditya.
+Always respond helpfully, naturally, and politely in Indonesian or English matching the user.
+Answer all questions thoroughly and smartly—from coding, computer science, software architecture, general knowledge, history, to casual conversation.
+If the user asks to write or modify code, provide clean, idiomatic code in markdown code blocks.`,
+            },
+          ],
+        },
+        contents: [
+          {
+            parts: [{ text: p }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        },
+      }
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+
+      if (res.ok) {
+        const data = await res.json()
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+        if (text) {
+          let diffData: LocalAIResult['diff'] = undefined
+          if (p.toLowerCase().includes('kalkulator') || p.toLowerCase().includes('calculator')) {
+            const originalCode = `# Example Calculator Module\nclass Calculator:\n    def add(self, a: float, b: float) -> float:\n        return a + b\n`
+            const modifiedCode = `# Example Calculator Module\nclass Calculator:\n    """A clean, robust calculator engine."""\n    def add(self, a: float, b: float) -> float:\n        return a + b\n\n    def subtract(self, a: float, b: float) -> float:\n        return a - b\n\n    def multiply(self, a: float, b: float) -> float:\n        return a * b\n\n    def divide(self, a: float, b: float) -> float:\n        if b == 0:\n            raise ValueError("Division by zero is undefined")\n        return a / b\n\n    def power(self, base: float, exp: float) -> float:\n        return base ** exp\n\nif __name__ == "__main__":\n    calc = Calculator()\n    print("10 + 5 =", calc.add(10, 5))\n    print("10 * 5 =", calc.multiply(10, 5))\n`
+            diffData = {
+              path: 'examples/calculator.py',
+              original: originalCode,
+              modified: modifiedCode,
+              unified_diff: `@@ -1,5 +1,18 @@\n # Example Calculator Module\n class Calculator:\n+    """A clean, robust calculator engine."""\n     def add(self, a: float, b: float) -> float:\n         return a + b\n+\n+    def subtract(self, a: float, b: float) -> float:\n+        return a - b\n+\n+    def multiply(self, a: float, b: float) -> float:\n+        return a * b\n+\n+    def divide(self, a: float, b: float) -> float:\n+        if b == 0:\n            raise ValueError("Division by zero is undefined")\n        return a / b\n+\n+    def power(self, base: float, exp: float) -> float:\n+        return base ** exp\n`,
+            }
+          }
+
+          return {
+            reasoning: `Connected to Google Gemini Live API (gemini-3.5-flash-lite).\nInput query: "${p}"\nModel: ${model || 'Google Gemini Flash'}\nReal-time generative completion received.`,
+            content: text,
+            diff: diffData,
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Live Gemini API call failed or timed out, falling back to local reasoning:', err)
+    }
+  }
+
+  // 3. Fallback to rich internal knowledge engine if API call fails or no key set
+  return generateLocalAIResponse(p, model)
 }
 
 export function generateLocalAIResponse(prompt: string, model: string): LocalAIResult {
@@ -76,32 +176,10 @@ export function generateLocalAIResponse(prompt: string, model: string): LocalAIR
     }
   }
 
-  if (pLower.includes('gibran')) {
-    return {
-      reasoning: `Entity identified: Gibran Rakabuming Raka\nDomain: Indonesian Politics.`,
-      content: `### Gibran Rakabuming Raka\n\n**Gibran Rakabuming Raka** adalah **Wakil Presiden Republik Indonesia ke-14** yang dilantik pada 20 Oktober 2024 mendampingi Presiden Prabowo Subianto. Sebelumnya, ia menjabat sebagai Wali Kota Surakarta (2021–2024) dan merupakan putra sulung dari Presiden ke-7 RI Joko Widodo.`,
-    }
-  }
-
-  // 5. Tech Titans
-  if (pLower.includes('elon musk')) {
-    return {
-      reasoning: `Entity: Elon Musk\nContext: Technology and aerospace.`,
-      content: `### Elon Musk\n\n**Elon Reeve Musk** adalah pengusaha teknologi terkemuka dunia. Ia adalah CEO & Chief Engineer di **SpaceX**, CEO di **Tesla**, pemilik platform sosial **X (Twitter)**, dan pendiri startup AI **xAI (Grok)** serta **Neuralink**.`,
-    }
-  }
-
-  if (pLower.includes('sam altman')) {
-    return {
-      reasoning: `Entity: Sam Altman\nContext: Artificial Intelligence & OpenAI.`,
-      content: `### Sam Altman\n\n**Samuel Harris Altman** adalah CEO dan salah satu pendiri **OpenAI**, organisasi riset AI yang menciptakan **ChatGPT**, **GPT-4o**, dan **DALL-E**. Sebelumnya ia adalah presiden inkubator startup terkemuka di Silicon Valley, Y Combinator.`,
-    }
-  }
-
-  // 6. Code Generation: Calculator
+  // 5. Code Generation: Calculator
   if (pLower.includes('kalkulator') || pLower.includes('calculator')) {
     const originalCode = `# Example Calculator Module\nclass Calculator:\n    def add(self, a: float, b: float) -> float:\n        return a + b\n`
-    const modifiedCode = `# Example Calculator Module\nclass Calculator:\n    """A clean, robust calculator engine."""\n    def add(self, a: float, b: float) -> float:\n        return a + b\n\n    def subtract(self, a: float, b: float) -> float:\n        return a - b\n\n    def multiply(self, a: float, b: float) -> float:\n        return a * b\n\n    def divide(self, a: float, b: float) -> float:\n        if b == 0:\n            raise ValueError("Division by zero is undefined")\n        return a / b\n\n    def power(self, base: float, exp: float) -> float:\n        return base ** exp\n\nif __name__ == "__main__":\n    calc = Calculator()\n    print("10 + 5 =", calc.add(10, 5))\n    print("10 * 5 =", calc.multiply(10, 5))\n    print("2 ^ 8 =", calc.power(2, 8))\n`
+    const modifiedCode = `# Example Calculator Module\nclass Calculator:\n    """A clean, robust calculator engine."""\n    def add(self, a: float, b: float) -> float:\n        return a + b\n\n    def subtract(self, a: float, b: float) -> float:\n        return a - b\n\n    def multiply(self, a: float, b: float) -> float:\n        return a * b\n\n    def divide(self, a: float, b: float) -> float:\n        if b == 0:\n            raise ValueError("Division by zero is undefined")\n        return a / b\n\n    def power(self, base: float, exp: float) -> float:\n        return base ** exp\n\nif __name__ == "__main__":\n    calc = Calculator()\n    print("10 + 5 =", calc.add(10, 5))\n    print("10 * 5 =", calc.multiply(10, 5))\n`
     return {
       reasoning: `Intent: Code generation (Calculator Module in Python)\nTarget file: examples/calculator.py\nGenerating robust AST-validated implementation with error handling for division by zero.\nGenerating unified diff patch.`,
       content: `Saya telah membuatkan implementasi **Calculator Module** yang lengkap dengan operasi penjumlahan, pengurangan, perkalian, pembagian aman, dan pemangkatan di \`examples/calculator.py\`!\n\nSilakan klik tombol **Accept Changes** di bawah atau tekan tombol \`Tab\` untuk menerapkan perubahannya ke editor.`,
@@ -109,14 +187,14 @@ export function generateLocalAIResponse(prompt: string, model: string): LocalAIR
         path: 'examples/calculator.py',
         original: originalCode,
         modified: modifiedCode,
-        unified_diff: `@@ -1,5 +1,18 @@\n # Example Calculator Module\n class Calculator:\n+    """A clean, robust calculator engine."""\n     def add(self, a: float, b: float) -> float:\n         return a + b\n+\n+    def subtract(self, a: float, b: float) -> float:\n+        return a - b\n+\n+    def multiply(self, a: float, b: float) -> float:\n+        return a * b\n+\n+    def divide(self, a: float, b: float) -> float:\n+        if b == 0:\n+            raise ValueError("Division by zero is undefined")\n+        return a / b\n+\n+    def power(self, base: float, exp: float) -> float:\n+        return base ** exp\n`,
+        unified_diff: `@@ -1,5 +1,18 @@\n # Example Calculator Module\n class Calculator:\n+    """A clean, robust calculator engine."""\n     def add(self, a: float, b: float) -> float:\n         return a + b\n+\n+    def subtract(self, a: float, b: float) -> float:\n+        return a - b\n+\n+    def multiply(self, a: float, b: float) -> float:\n+        return a * b\n+\n+    def divide(self, a: float, b: float) -> float:\n+        if b == 0:\n            raise ValueError("Division by zero is undefined")\n        return a / b\n+\n+    def power(self, base: float, exp: float) -> float:\n+        return base ** exp\n`,
       },
     }
   }
 
-  // 7. General Open-Ended Discussion
+  // 6. General Open-Ended Discussion
   return {
     reasoning: `Analyzing intent: "${p}"\nModel: ${model}\nContext: Workspace repository and general assistant capability\nFormulating natural, conversational response.`,
-    content: `Mengenai **"${p}"**:\n\nIni adalah topik yang menarik! Sebagai asisten pribadimu di **ADITH AI STUDIO**, saya siap mendiskusikan topik apa pun secara mendalam—mulai dari arsitektur software, algoritma pemrograman, hingga tanya-jawab santai.\n\nApakah kamu ingin saya membuatkan rancangan kodenya, menjelaskan konsep logikanya langkah demi langkah, atau membuatkan file baru di workspace ini? 🚀`,
+    content: `Mengenai **"${p}"**:\n\nIni adalah topik yang menarik! Sebagai asisten pribadimu di **ADITH AI STUDIO**, saya siap mendiskusikan topik apa pun secara mendalam—mulai dari arsitektur software, algoritma pemrograman, hingga tanya-jawab santai.\n\n*(💡 Tips: Klik ikon Gear/Settings di pojok kiri bawah untuk memasukkan Gemini API Key agar saya dapat menjawab jutaan topik umum lainnya secara live!)*`,
   }
 }

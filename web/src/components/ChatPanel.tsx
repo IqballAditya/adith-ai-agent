@@ -12,7 +12,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { ChatMessage, DiffSuggestion } from '../types'
-import { generateLocalAIResponse } from '../aiEngine'
+import { askLiveAI } from '../aiEngine'
 
 interface ChatPanelProps {
   messages: ChatMessage[]
@@ -104,7 +104,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       })
 
       if (!response.ok) {
-        const result = generateLocalAIResponse(prompt, selectedModel)
+        // Direct live Google Gemini API call
+        const result = await askLiveAI(prompt, selectedModel)
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId
@@ -212,7 +213,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
-        const result = generateLocalAIResponse(prompt, selectedModel)
+        const result = await askLiveAI(prompt, selectedModel)
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessageId

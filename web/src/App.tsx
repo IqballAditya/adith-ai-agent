@@ -8,6 +8,7 @@ import {
   Play,
   Rocket,
   ChevronDown,
+  X,
 } from 'lucide-react'
 import { FileTree } from './components/FileTree'
 import { CodeEditor, getLanguageFromPath } from './components/CodeEditor'
@@ -15,6 +16,7 @@ import { ChatPanel } from './components/ChatPanel'
 import { TerminalView } from './components/TerminalView'
 import { EditorTab, ChatMessage } from './types'
 import { VIRTUAL_FILES } from './virtualWorkspace'
+import { getGeminiKey, setGeminiKey } from './aiEngine'
 
 export const App: React.FC = () => {
   // Navigation sidebar toggles
@@ -33,6 +35,11 @@ export const App: React.FC = () => {
 
   // Gateway health state
   const [gatewayStatus, setGatewayStatus] = useState<'online' | 'offline' | 'checking'>('checking')
+
+  // Settings modal state
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false)
+  const [apiKeyInput, setApiKeyInput] = useState<string>(() => getGeminiKey())
+  const [keySavedMessage, setKeySavedMessage] = useState<string>('')
 
   const models = [
     'Google Gemini Flash',
@@ -386,7 +393,12 @@ export const App: React.FC = () => {
 
           <div className="mt-auto">
             <button
-              title="Settings"
+              onClick={() => {
+                setApiKeyInput(getGeminiKey())
+                setKeySavedMessage('')
+                setShowSettingsModal(true)
+              }}
+              title="Settings (API Key)"
               className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-studio-surface hover:text-slate-200 transition"
             >
               <Settings className="w-4 h-4" />
@@ -432,6 +444,71 @@ export const App: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-studio-card border border-studio-border rounded-xl w-full max-w-md p-5 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-studio-border">
+              <div className="flex items-center gap-2">
+                <Settings className="w-4 h-4 text-indigo-400" />
+                <h3 className="font-semibold text-white text-sm">ADITH AI STUDIO Settings</h3>
+              </div>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded hover:bg-studio-surface transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Google Gemini API Key
+                </label>
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => {
+                    setApiKeyInput(e.target.value)
+                    setKeySavedMessage('')
+                  }}
+                  placeholder="Paste your Gemini API key (AQ... or AIza...)"
+                  className="w-full bg-studio-surface border border-studio-border rounded px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500 font-mono"
+                />
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Kunci API ini disimpan secara aman di browser local storage kamu. Digunakan untuk memanggil Google Gemini 3.5 Flash secara langsung dari browser.
+                </p>
+              </div>
+
+              {keySavedMessage && (
+                <div className="text-emerald-400 text-xs bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded">
+                  {keySavedMessage}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-studio-border">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="px-3 py-1.5 rounded text-xs text-slate-400 hover:text-white hover:bg-studio-surface transition"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setGeminiKey(apiKeyInput)
+                  setKeySavedMessage('✓ API Key tersimpan! Sekarang AI terhubung live ke Google Gemini.')
+                }}
+                className="px-4 py-1.5 rounded text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-600/20 transition cursor-pointer"
+              >
+                Save Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
