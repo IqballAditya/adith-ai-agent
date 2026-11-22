@@ -317,6 +317,39 @@ func TestChatStreamingAgentProxy(t *testing.T) {
 	}
 }
 
+func TestChatStreamingAgentNon200Fallback(t *testing.T) {
+	db := setupTestDB(t)
+	ws := setupTestWorkspace(t)
+
+	// Mock agent returning 500 error to ensure response body is closed and fallback triggers cleanly
+	mockAgent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Internal Agent Error", http.StatusInternalServerError)
+	}))
+	defer mockAgent.Close()
+
+	server := api.NewServer(db, mockAgent.URL, ws)
+
+	payload := map[string]string{
+		"workspace_id": "test-ws-500",
+		"prompt":       "Prompt triggers 500 fallback",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK fallback stream, got %d", rec.Code)
+	}
+
+	bodyStr := rec.Body.String()
+	if !strings.Contains(bodyStr, "event: reasoning") || !strings.Contains(bodyStr, "event: message") {
+		t.Fatalf("expected fallback SSE stream on agent non-200, got: %s", bodyStr)
+	}
+}
+
 func TestTerminalWebSocket(t *testing.T) {
 	db := setupTestDB(t)
 	ws := setupTestWorkspace(t)

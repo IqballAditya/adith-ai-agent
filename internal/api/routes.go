@@ -297,60 +297,63 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 		client := &http.Client{Timeout: 0}
 		agentResp, agentErr := client.Do(agentReq)
-		if agentErr == nil && agentResp.StatusCode == http.StatusOK {
-			defer agentResp.Body.Close()
+		if agentErr == nil {
+			if agentResp.StatusCode == http.StatusOK {
+				defer agentResp.Body.Close()
 
-			w.Header().Set("Content-Type", "text/event-stream")
-			w.Header().Set("Cache-Control", "no-cache")
-			w.Header().Set("Connection", "keep-alive")
-			w.Header().Set("X-Accel-Buffering", "no")
-			w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "text/event-stream")
+				w.Header().Set("Cache-Control", "no-cache")
+				w.Header().Set("Connection", "keep-alive")
+				w.Header().Set("X-Accel-Buffering", "no")
+				w.WriteHeader(http.StatusOK)
 
-			reader := bufio.NewReader(agentResp.Body)
-			var reasoningBuilder strings.Builder
-			var messageBuilder strings.Builder
-			var promptTokens, completionTokens int
+				reader := bufio.NewReader(agentResp.Body)
+				var reasoningBuilder strings.Builder
+				var messageBuilder strings.Builder
+				var promptTokens, completionTokens int
 
-			for {
-				line, readErr := reader.ReadString('\n')
-				if len(line) > 0 {
-					_, _ = w.Write([]byte(line))
-					if line == "\n" || line == "\r\n" {
-						flusher.Flush()
-					}
-					if strings.HasPrefix(line, "data: ") {
-						dataStr := strings.TrimSpace(strings.TrimPrefix(line, "data: "))
-						var evt map[string]interface{}
-						if json.Unmarshal([]byte(dataStr), &evt) == nil {
-							evtType, _ := evt["type"].(string)
-							if evtType == "reasoning" {
-								if c, ok := evt["content"].(string); ok {
-									reasoningBuilder.WriteString(c)
-								}
-							} else if evtType == "message" {
-								if c, ok := evt["content"].(string); ok {
-									messageBuilder.WriteString(c)
-								}
-							} else if evtType == "done" {
-								if usage, ok := evt["usage"].(map[string]interface{}); ok {
-									if pt, ok := usage["prompt_tokens"].(float64); ok {
-										promptTokens = int(pt)
+				for {
+					line, readErr := reader.ReadString('\n')
+					if len(line) > 0 {
+						_, _ = w.Write([]byte(line))
+						if line == "\n" || line == "\r\n" {
+							flusher.Flush()
+						}
+						if strings.HasPrefix(line, "data: ") {
+							dataStr := strings.TrimSpace(strings.TrimPrefix(line, "data: "))
+							var evt map[string]interface{}
+							if json.Unmarshal([]byte(dataStr), &evt) == nil {
+								evtType, _ := evt["type"].(string)
+								if evtType == "reasoning" {
+									if c, ok := evt["content"].(string); ok {
+										reasoningBuilder.WriteString(c)
 									}
-									if ct, ok := usage["completion_tokens"].(float64); ok {
-										completionTokens = int(ct)
+								} else if evtType == "message" {
+									if c, ok := evt["content"].(string); ok {
+										messageBuilder.WriteString(c)
+									}
+								} else if evtType == "done" {
+									if usage, ok := evt["usage"].(map[string]interface{}); ok {
+										if pt, ok := usage["prompt_tokens"].(float64); ok {
+											promptTokens = int(pt)
+										}
+										if ct, ok := usage["completion_tokens"].(float64); ok {
+											completionTokens = int(ct)
+										}
 									}
 								}
 							}
 						}
 					}
+					if readErr != nil {
+						break
+					}
 				}
-				if readErr != nil {
-					break
-				}
+				flusher.Flush()
+				s.logChatInteraction(req.WorkspaceID, req.Prompt, reasoningBuilder.String(), messageBuilder.String(), promptTokens, completionTokens)
+				return
 			}
-			flusher.Flush()
-			s.logChatInteraction(req.WorkspaceID, req.Prompt, reasoningBuilder.String(), messageBuilder.String(), promptTokens, completionTokens)
-			return
+			_ = agentResp.Body.Close()
 		}
 	}
 

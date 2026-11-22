@@ -79,10 +79,14 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	writeToWS := func(data []byte) error {
 		writeMu.Lock()
 		defer writeMu.Unlock()
-		return conn.WriteMessage(websocket.TextMessage, data)
+		return conn.WriteMessage(websocket.BinaryMessage, data)
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	streamReader := func(r io.Reader) {
+		defer wg.Done()
 		buf := make([]byte, 2048)
 		for {
 			n, readErr := r.Read(buf)
@@ -99,6 +103,11 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 
 	go streamReader(stdout)
 	go streamReader(stderr)
+
+	go func() {
+		wg.Wait()
+		_ = conn.Close()
+	}()
 
 	for {
 		_, msg, readErr := conn.ReadMessage()
