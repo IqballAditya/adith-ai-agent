@@ -1,47 +1,86 @@
-# Adith AI Studio
+# ⚡ ADITH AI STUDIO
 
-> **High-Performance Autonomous AI Developer Environment**  
-> A full-stack, local-first AI IDE fusing a Go HTTP/WebSocket Gateway, a Python FastAPI Multi-turn Reasoning Engine with Tree-sitter AST parsing, a SQLite WAL persistence engine, and a React Monaco Editor Web interface.
+<p align="center">
+  <strong>High-Performance Autonomous AI Developer Environment & Local-First IDE</strong><br>
+  <em>Dirancang & dikembangkan khusus oleh <strong>Iqbal Aditya</strong> sebagai platform asisten rekayasa perangkat lunak cerdas dan mandiri.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go" />
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/SQLite-WAL%20Mode-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" />
+</p>
 
 ---
 
-## Architecture Overview
+## 📖 Ringkasan Proyek (Overview)
 
-Adith AI Studio is architected across four decoupled, high-performance layers designed for ultra-low latency, complete privacy, zero container overhead, and native Windows compatibility.
+**ADITH AI STUDIO** adalah lingkungan pengembangan terintegrasi (*Integrated Development Environment* / IDE) berbasis AI mandiri yang menggabungkan:
+1. **Web IDE Modern**: Editor kode Monaco (multi-tab, visual diff patch preview) dan terminal ConPTY bawaan.
+2. **Go Gateway Server (:8090)**: Reverse proxy performa tinggi, validasi traversal jalur file yang aman, dan jembatan WebSocket PTY interaktif.
+3. **Python AI Agent Engine (:5050)**: Mesin penalaran cerdas (*multi-turn reasoning loop*), ekstraksi simbol berbasis AST (Tree-sitter), memori vektor semantik, dan perute LLM multi-provider.
+4. **Penyimpanan SQLite WAL**: Database audit trail untuk mencatat thread obrolan, metrik token, dan eksekusi perubahan file.
+
+Aplikasi ini dapat berjalan secara **100% lokal tanpa container Docker**, sangat hemat sumber daya, dan mendukung berbagai model AI terdepan (Google Gemini, OpenAI GPT-4o, DeepSeek-R1, Anthropic Claude, Groq LLaMA, hingga model offline lokal).
+
+---
+
+## 🌟 Fitur Utama (Key Features)
+
+- 🧠 **Multi-Provider AI Intelligence**:
+  - **Google Gemini** (Gemini 2.5 Flash / Gemini 3.1 Flash Lite via official Google AI Studio API).
+  - **OpenAI** (GPT-4o, GPT-4o-mini).
+  - **DeepSeek** (DeepSeek-R1, DeepSeek-V3).
+  - **Anthropic** (Claude 3.5 Sonnet, Claude 3.5 Haiku).
+  - **Groq** (LLaMA 3.3 70B Ultra-fast).
+  - **Local Ollama & Offline Fallback**: Tetap bisa diajak ngobrol santai, sains, sejarah, dan kalkulasi matematika tanpa koneksi internet.
+- ⚡ **Auto Model Router**: Otomatis memetakan model dari dropdown UI ke provider yang aktif tanpa error format model.
+- 🔍 **Tree-sitter AST & Vector Memory**: Membaca dan memahami fungsi, kelas, dan struktur kode (Python, Go, TypeScript) secara mendalam.
+- 📝 **Visual Diff Proposal & Safe Patching**: Mengusulkan perubahan kode dalam format unified diff yang bisa diterima hanya dengan menekan tombol **`Tab`** atau tombol **Accept Changes**.
+- 💻 **Integrated Windows ConPTY Terminal**: Terminal interaktif berbasis `xterm.js` terhubung langsung ke PowerShell / CMD lokal via WebSocket biner.
+- 🚀 **1-Click Development Bootstrapper (`run-dev.ps1`)**: Cukup satu perintah untuk menjalankan seluruh stack, memverifikasi dependensi, dan membuka browser otomatis dengan fitur *auto hot-reload*.
+
+---
+
+## 🏗️ Arsitektur Sistem (Architecture)
 
 ```mermaid
 flowchart TD
-    subgraph Layer1["Layer 1: Web IDE Frontend (React + TypeScript)"]
-        UI["Monaco Editor (Multi-Tab / Diff View)"]
-        ChatUI["AI Chat Panel (Reasoning & Diff Cards)"]
-        TermUI["xterm.js Integrated PTY Terminal"]
-        Hotkeys["Keyboard Hotkeys (Tab Accept, Ctrl+Enter, Ctrl+S)"]
+    subgraph Layer1["Layer 1: Frontend Web IDE (React + TypeScript + Monaco)"]
+        UI["Monaco Editor (Multi-Tab / Syntax Highlighting)"]
+        ChatUI["AI Copilot Panel (Reasoning & Diff Cards)"]
+        TermUI["xterm.js Integrated ConPTY Terminal"]
+        Hotkeys["Hotkeys (Tab: Accept Diff, Ctrl+Enter: Run, Ctrl+S: Save)"]
     end
 
-    subgraph Layer2["Layer 2: Go High-Performance Gateway (:8090)"]
-        Mux["HTTP ServeMux & CORS Router"]
-        TreeAPI["/api/tree (Fast File Hierarchy)"]
-        FileAPI["/api/file (Safe Buffer Read & Sync)"]
-        DiffAPI["/api/diff/accept (Atomic Diff Patcher)"]
-        SSEProxy["/api/chat (SSE Proxy & Audit Logger)"]
-        PTYWs["/api/terminal (ConPTY / PowerShell Bridge)"]
+    subgraph Layer2["Layer 2: Go Gateway (:8090)"]
+        Mux["HTTP Router & Reverse Proxy"]
+        TreeAPI["/api/tree (Workspace File Tree)"]
+        FileAPI["/api/file (Safe Buffer Read & Bounds Check)"]
+        DiffAPI["/api/diff/accept (Atomic File Patcher)"]
+        SSEProxy["/api/chat (SSE Stream Bridge & Audit)"]
+        PTYWs["/api/terminal (Windows ConPTY WebSocket)"]
         StaticServe["web/dist Static Asset Server"]
     end
 
     subgraph Layer3["Layer 3: Python AI Agent Engine (:5050)"]
-        FastAPIApp["FastAPI Streaming Service"]
-        Orchestrator["AgentOrchestrator (Multi-turn Reasoning)"]
-        ASTParser["Tree-sitter AST Symbol Extractor"]
+        FastAPIApp["FastAPI Server & Streaming Route"]
+        Orchestrator["AgentOrchestrator (Reasoning Loop)"]
+        LLMRouter["Multi-Provider LLM Client (Gemini, OpenAI, Claude, Groq)"]
+        ASTParser["Tree-sitter AST Parser (Python, Go, TS)"]
         VectorMemory["InMemory Vector & Lexical Store"]
-        DiffGen["Synthetic Unified Diff Generator"]
+        DiffGen["Unified Diff Patch Generator"]
     end
 
-    subgraph Layer4["Layer 4: Storage & Persistence Engine"]
+    subgraph Layer4["Layer 4: Storage & Filesystem"]
         SQLiteDB[("SQLite WAL Database (adith.db)")]
         WorkspacesTbl["workspaces & chat_threads"]
-        MessagesTbl["messages (prompt, reasoning, tokens)"]
-        ToolExecTbl["tool_executions (audit trail)"]
-        WorkspaceFiles["Local Workspace Filesystem"]
+        MessagesTbl["messages (audit prompt & tokens)"]
+        ToolExecTbl["tool_executions (history patch)"]
+        WorkspaceFiles["Local Workspace Directory"]
     end
 
     UI --> FileAPI
@@ -57,336 +96,157 @@ flowchart TD
     TreeAPI --> WorkspaceFiles
 
     FastAPIApp --> Orchestrator
+    Orchestrator --> LLMRouter
     Orchestrator --> ASTParser
     Orchestrator --> VectorMemory
     Orchestrator --> DiffGen
     ASTParser --> WorkspaceFiles
 ```
 
-### The 4 Architectural Layers
-
-1. **Layer 1: TypeScript React Web IDE (`web/`)**
-   - **Monaco Code Editor**: Multi-tab editing with automatic syntax highlighting for Go, Python, TypeScript, JavaScript, JSON, Markdown, and more.
-   - **Inline Diff Review**: Visual diff preview displaying original vs. modified code with one-click or `Tab` key diff acceptance.
-   - **Integrated Terminal**: `xterm.js` terminal connected via binary WebSocket frames directly to local PowerShell / cmd.exe processes.
-   - **Live Streaming Chat**: Real-time SSE streaming rendering thought processes in collapsible reasoning containers before response tokens stream.
-
-2. **Layer 2: Go Gateway (`cmd/gateway/`, `internal/`)**
-   - **Unified API & Reverse Proxy**: Routes all client requests, proxies AI chat to Python agent, and serves production web assets from `web/dist`.
-   - **Safe Filesystem Ops**: Directory traversal checks preventing path escape outside the designated workspace root.
-   - **Atomic Diff Patching**: Validates original content match before applying modifications, logging audit records to SQLite.
-   - **ConPTY Windows Terminal**: Spawns interactive shells (PowerShell, cmd) with full terminal emulation support.
-
-3. **Layer 3: Python Agent Engine (`agent/`)**
-   - **FastAPI SSE Streaming**: Streams events (`reasoning`, `message`, `diff`, `done`) with keep-alive headers and zero buffering (`X-Accel-Buffering: no`).
-   - **Tree-sitter AST Parser**: Extracts functions, classes, and method signatures across Python, Go, and TypeScript.
-   - **Vector Memory**: In-memory dense and lexical indexing of AST code symbols for semantic retrieval.
-   - **Autonomous Patch Generator**: Synthesizes clean unified diffs formatted for one-click application.
-
-4. **Layer 4: Persistent Database & Filesystem (`internal/database/`)**
-   - **SQLite in WAL Mode**: Write-Ahead Logging (`PRAGMA journal_mode = WAL`) and `busy_timeout = 5000` for high concurrency without database locks.
-   - **Foreign Key Constraints**: Strict cascading integrity on workspaces, chat threads, messages, and tool executions.
-
 ---
 
-## Quickstart Guide
+## 🚀 Panduan Memulai Cepat (Quickstart)
 
-### Prerequisites
-- **Windows 10 / 11** (64-bit)
-- **Go 1.22+**: [Download Go](https://go.dev/dl/)
-- **Python 3.10+**: [Download Python](https://www.python.org/)
-- **Node.js 18+ & npm**: [Download Node.js](https://nodejs.org/)
+### Prasyarat (Prerequisites)
+- **Sistem Operasi**: Windows 10 / 11 (64-bit)
+- **Go**: 1.22+ ([Unduh Go](https://go.dev/dl/))
+- **Python**: 3.10+ ([Unduh Python](https://www.python.org/))
+- **Node.js**: 18+ & npm ([Unduh Node.js](https://nodejs.org/))
 
-### 1-Click Launch (Recommended)
+### 1. Menjalankan Studio (1 Perintah)
 
-Run the unified PowerShell bootstrapper from the project root:
+Buka PowerShell di folder repositori, lalu jalankan:
 
 ```powershell
 .\run-dev.ps1
 ```
 
-The bootstrapper automatically:
-1. Validates your Python and Go installations.
-2. Checks for `web/dist` and compiles the React application if missing.
-3. Launches the Python Agent (`:5050`) and waits for `/health`.
-4. Launches the Go Gateway (`:8090`) and waits for `/health`.
-5. Opens your default web browser to `http://127.0.0.1:8090`.
-6. Gracefully terminates all processes and subprocess trees when you press `Ctrl+C`.
-
-#### Customizing Bootstrapper Flags
-
-```powershell
-# Run on custom ports
-.\run-dev.ps1 -AgentPort 5051 -GatewayPort 8091
-
-# Run without opening the browser automatically
-.\run-dev.ps1 -NoBrowser
-
-# Target a different workspace directory
-.\run-dev.ps1 -WorkspaceRoot "C:\Projects\MyProject"
-```
+Script bootstrapper ini akan:
+1. Memeriksa compiler Go, Python, dan Node.js.
+2. Memeriksa dan mengompilasi aset frontend React (`web/dist`).
+3. Menjalankan Python Agent Engine (`:5050`) dengan fitur *auto-reload*.
+4. Menjalankan Go Gateway (`:8090`).
+5. Membuka browser otomatis ke `http://127.0.0.1:8090`.
+6. Melakukan pembersihan proses (*graceful cleanup*) saat kamu menekan `Ctrl+C`.
 
 ---
 
-## Manual Execution Workflow
+## 🔑 Konfigurasi API Key (`.env`)
 
-If you prefer running services independently across separate terminal windows:
+Untuk menghubungkan kecerdasan cloud tingkat tinggi (seperti ChatGPT / Gemini), buat atau edit file `.env` di direktori utama:
 
-### 1. Build Frontend
-```powershell
-cd web
-npm install
-npm run build
-cd ..
+```ini
+# ==============================================================================
+# ADITH AI STUDIO - Model API Keys Configuration
+# ==============================================================================
+
+# 1. Google Gemini (GRATIS dari https://aistudio.google.com/app/apikey)
+GEMINI_API_KEY=AIzaSy... atau AQ.Ab8...
+
+# 2. Groq (Llama 3.3 70B Super Fast & GRATIS dari https://console.groq.com/)
+GROQ_API_KEY=gsk_...
+
+# 3. OpenAI (GPT-4o dari https://platform.openai.com/api-keys)
+OPENAI_API_KEY=sk-...
+
+# 4. DeepSeek (DeepSeek-R1 / V3 dari https://platform.deepseek.com/)
+DEEPSEEK_API_KEY=sk-...
+
+# 5. Anthropic (Claude 3.5 Sonnet dari https://console.anthropic.com/)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# 6. Local Ollama (Jika menjalankan Ollama secara lokal di komputer)
+OLLAMA_BASE_URL=http://localhost:11434/v1
 ```
 
-### 2. Start Python Agent Engine
-```powershell
-python -m uvicorn agent.server:app --host 127.0.0.1 --port 5050
-```
-
-### 3. Start Go Gateway
-```powershell
-go run cmd/gateway/main.go -port 8090 -agent http://127.0.0.1:5050 -workspace . -db ./adith.db
-```
-
-Access the studio at `http://127.0.0.1:8090`.
+> 💡 **Tips:** Jika `.env` dibiarkan kosong, ADITH AI STUDIO tetap berjalan menggunakan mesin percakapan lokal internal (sains, matematika, sejarah, tokoh dunia, dan konsep pemrograman).
 
 ---
 
-## API Reference
+## ⌨️ Pintasan Keyboard (Keyboard Shortcuts)
 
-### Go Gateway Endpoints (`http://127.0.0.1:8090`)
-
-| Endpoint | Method | Description |
+| Tombol Pintas | Area | Fungsi |
 |---|---|---|
-| `/health` | `GET` | Health check returning Gateway status (`{"status":"ok","service":"adith-gateway"}`). |
-| `/api/tree` | `GET` | Returns recursive hierarchical file tree of workspace, excluding ignore directories. |
-| `/api/file?path=<path>` | `GET` | Reads UTF-8 content of workspace file with traversal bounds check. |
-| `/api/diff/accept` | `POST` | Validates original file content, writes patch to disk, logs execution to SQLite. |
-| `/api/chat` | `POST` | Proxies prompt to Python Agent via SSE stream; logs interaction to SQLite messages. |
-| `/api/terminal` | `GET (WS)` | WebSocket endpoint bridging interactive Windows PTY / PowerShell sessions. |
-
-#### Diff Accept Request Payload
-```json
-{
-  "path": "calculator.py",
-  "original": "def add(a, b):\n    return a - b\n",
-  "modified": "def add(a, b):\n    return a + b\n"
-}
-```
-
-#### Diff Accept Response Payload
-```json
-{
-  "status": "applied",
-  "path": "calculator.py"
-}
-```
+| **`Tab`** | Kartu Usulan Diff | Menerapkan usulan perubahan kode langsung ke file asli di disk. |
+| **`Ctrl + Enter`** | Input Chat / Editor | Mengirim prompt instruksi ke AI Agent. |
+| **`Ctrl + S`** | Monaco Editor | Menyimpan perubahan buffer editor ke file disk. |
+| **Klik Tab `x`** | Header Tab | Menutup tab aktif dan berpindah ke tab terdekat. |
+| **Klik Berkas di Tree** | Sidebar File Explorer | Membuka file ke tab Monaco Editor. |
 
 ---
 
-### Python Agent Endpoints (`http://127.0.0.1:5050`)
+## 📁 Struktur Direktori (Project Structure)
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | `GET` | Agent health probe (`{"status":"ok","service":"adith-ai-agent"}`). |
-| `/v1/agent/index` | `POST` | Indexes workspace directory, parses ASTs, and caches code symbols in vector store. |
-| `/v1/agent/chat` | `POST` | Executes reasoning loop and streams Server-Sent Events (`text/event-stream`). |
-
-#### SSE Event Specifications
-
-- **`event: reasoning`**: Emitted while the agent searches symbols and evaluates syntax.
-  ```json
-  {"type": "reasoning", "content": "Analyzing AST for 'calculator.py'..."}
-  ```
-- **`event: message`**: Conversational prose chunks.
-  ```json
-  {"type": "message", "content": "I have patched the add function."}
-  ```
-- **`event: diff`**: Structured code modification proposal.
-  ```json
-  {
-    "type": "diff",
-    "data": {
-      "path": "calculator.py",
-      "original": "...",
-      "modified": "...",
-      "unified_diff": "@@ -2 +2 @@\n- return a - b\n+ return a + b\n"
-    }
-  }
-  ```
-- **`event: done`**: Completion signal containing token metrics.
-  ```json
-  {"type": "done", "usage": {"prompt_tokens": 14, "completion_tokens": 38}}
-  ```
-
----
-
-## Database Schema & Audit Trail
-
-All workspaces, chat threads, messages, and tool executions are persisted in SQLite with WAL mode (`adith.db`).
-
-```sql
-CREATE TABLE workspaces (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    root_path TEXT NOT NULL,
-    default_branch TEXT NOT NULL DEFAULT 'main',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE chat_threads (
-    id TEXT PRIMARY KEY,
-    workspace_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    model_name TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
-);
-
-CREATE TABLE messages (
-    id TEXT PRIMARY KEY,
-    thread_id TEXT NOT NULL,
-    role TEXT NOT NULL,
-    content TEXT NOT NULL,
-    reasoning_content TEXT,
-    prompt_tokens INTEGER,
-    completion_tokens INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(thread_id) REFERENCES chat_threads(id) ON DELETE CASCADE
-);
-
-CREATE TABLE tool_executions (
-    id TEXT PRIMARY KEY,
-    message_id TEXT NOT NULL,
-    tool_name TEXT NOT NULL,
-    tool_arguments TEXT,
-    tool_output TEXT,
-    status TEXT NOT NULL,
-    duration_ms INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE
-);
-
-CREATE TABLE codebase_files (
-    id TEXT PRIMARY KEY,
-    workspace_id TEXT NOT NULL,
-    relative_path TEXT NOT NULL,
-    file_hash TEXT NOT NULL,
-    ast_parsed BOOLEAN DEFAULT 0,
-    indexed_at DATETIME,
-    FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
-    UNIQUE(workspace_id, relative_path)
-);
+```text
+adith-ai-studio/
+├── cmd/
+│   └── gateway/
+│       └── main.go            # Entrypoint Go Gateway HTTP & WebSocket server
+├── internal/
+│   ├── api/
+│   │   ├── routes.go          # HTTP Mux, REST routes, SSE proxy, dan Terminal WS
+│   │   └── terminal.go        # Windows ConPTY terminal bridge
+│   ├── database/
+│   │   └── sqlite.go          # SQLite schema, migrasi WAL, dan audit logging
+│   └── workspace/
+│       ├── fileops.go         # Pembacaan file & validasi traversal batas direktori
+│       └── diff.go            # Verifikasi konten & penerapan patch diff atomik
+├── agent/
+│   ├── llm/
+│   │   └── client.py          # Multi-provider LLM client & local conversational engine
+│   ├── orchestrator.py        # Loop penalaran agen AI & perancang patch diff
+│   ├── parser.py              # Parser AST Tree-sitter (Python, Go, TypeScript)
+│   ├── memory.py              # Memori vektor semantik simbol kode
+│   ├── indexer.py             # Pengindeks hierarki codebase workspace
+│   ├── server.py              # FastAPI service untuk SSE streaming & indexing
+│   └── tests/                 # Unit test suite Python (pytest)
+├── web/
+│   ├── src/
+│   │   ├── App.tsx            # Komponen utama IDE (Header, layout, tab manager)
+│   │   ├── components/
+│   │   │   ├── ChatPanel.tsx  # Panel obrolan AI dengan reasoning card & diff proposal
+│   │   │   ├── Editor.tsx     # Monaco Editor multi-tab wrapper
+│   │   │   ├── FileTree.tsx   # Pohon berkas workspace interaktif
+│   │   │   └── Terminal.tsx   # xterm.js terminal emulator
+│   │   └── types.ts           # Definisi tipe data TypeScript
+│   ├── package.json           # Dependensi React & Vite
+│   └── vite.config.ts         # Konfigurasi bundler Vite
+├── .env.example               # Contoh template konfigurasi API keys
+├── run-dev.ps1                # Script bootstrapper otomatis lokal Windows
+├── go.mod                     # Modul Go & dependensi
+├── requirements.txt           # Dependensi Python
+└── README.md                  # Dokumentasi proyek
 ```
 
 ---
 
-## Verification & Test Suites
+## 🧪 Pengujian & Verifikasi (Test Suites)
 
-The codebase includes end-to-end integration tests, unit test suites for all backend packages, Python pytest suites, and frontend type-checking.
+Seluruh komponen dilengkapi dengan test suite otomatis:
 
-### Run All Go Tests
 ```powershell
+# 1. Jalankan Unit Test Go (20 tests passed)
 go test -v ./...
-```
 
-### Run Python Pytest Suite
-```powershell
+# 2. Jalankan Unit Test Python (34 tests passed)
 pytest agent/tests
-```
 
-### Run Frontend Typecheck & Build
-```powershell
+# 3. Jalankan Type-check & Build Frontend React
 cd web
 npm run build
 cd ..
 ```
 
-### Run E2E Smoke Test Suite
-```powershell
-go test -v ./test/...
-```
+---
 
-The E2E smoke test verifies:
-1. Workspace directory creation and SQLite initialization with WAL pragmas.
-2. Codebase file seeding and file tree discovery.
-3. Python Agent symbol indexing (`/v1/agent/index`).
-4. SSE stream parsing with reasoning, message, and diff events.
-5. Atomic diff acceptance (`POST /api/diff/accept`).
-6. Filesystem disk modification assertion.
-7. SQLite audit trail logging verification in `messages` and `tool_executions`.
+## 👤 Penulis & Pengembang (Author)
+
+- **Iqbal Aditya**  
+  *Software Engineer & Creator of ADITH AI STUDIO*  
+  Portfolio: [Iqbal Aditya Portfolio](https://github.com/iqbaladitya)
 
 ---
 
-## Keyboard Shortcuts & Workflow
+## 📄 Lisensi (License)
 
-| Shortcut | Context | Action |
-|---|---|---|
-| `Tab` | AI Chat / Diff Card | Instantly accepts active proposed diff and writes changes to disk. |
-| `Ctrl + Enter` | Chat Input | Submits prompt to AI Agent. |
-| `Ctrl + S` | Monaco Editor | Saves currently active editor buffer to workspace file. |
-| Click Tab Close (`x`) | Editor Tabs | Closes active tab and focuses adjacent tab. |
-| Click File in Tree | File Tree Sidebar | Opens file in new or existing Monaco editor tab. |
-
----
-
-## Containerization & Kubernetes Migration Path
-
-While designed for native zero-Docker execution on Windows, Adith AI Studio is structured for containerized cloud deployment.
-
-### Dockerfile (Go Gateway + Static Frontend)
-
-```dockerfile
-# Multi-stage build for Go Gateway
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app/web
-COPY web/package*.json ./
-RUN npm install
-COPY web/ ./
-RUN npm run build
-
-FROM golang:1.22-alpine AS gateway-builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY cmd/ cmd/
-COPY internal/ internal/
-COPY --from=frontend-builder /app/web/dist /app/web/dist
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/adith-gateway cmd/gateway/main.go
-
-FROM alpine:3.19
-WORKDIR /app
-RUN apk add --no-cache bash ca-certificates
-COPY --from=gateway-builder /app/adith-gateway /app/
-COPY --from=frontend-builder /app/web/dist /app/web/dist
-EXPOSE 8090
-ENTRYPOINT ["/app/adith-gateway", "-port", "8090", "-workspace", "/workspace"]
-```
-
-### Dockerfile (Python Agent Engine)
-
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-COPY agent/ agent/
-EXPOSE 5050
-ENTRYPOINT ["python", "-m", "uvicorn", "agent.server:app", "--host", "0.0.0.0", "--port", "5050"]
-```
-
-### Kubernetes Migration Pattern
-
-- **Deployment 1 (Agent)**: Scalable deployment of Python Agent workers backed by Redis or vector store service (e.g. Qdrant / Milvus).
-- **Deployment 2 (Gateway)**: Gateway pods behind an Ingress controller with WebSocket and SSE streaming timeouts disabled.
-- **PersistentVolumeClaim**: Shared ReadWriteMany (NFS / CephFS / CSI) mounted at `/workspace` for multi-user project workspaces.
-- **Database**: External PostgreSQL or distributed SQLite (LiteFS / rqlite) mapped via the database interface.
-
----
-
-## License
-
-MIT License. Designed and engineered for high-performance developer workflows.
+Didistribusikan di bawah lisensi **MIT License**. Bebas dimodifikasi dan dikembangkan untuk kebutuhan pembelajaran maupun produksi.
