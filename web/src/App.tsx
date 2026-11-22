@@ -27,13 +27,14 @@ export const App: React.FC = () => {
 
   // Chat messages
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [selectedModel, setSelectedModel] = useState<string>('Claude 3.5 Sonnet + R1')
+  const [selectedModel, setSelectedModel] = useState<string>('Google Gemini Flash')
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState<boolean>(false)
 
   // Gateway health state
   const [gatewayStatus, setGatewayStatus] = useState<'online' | 'offline' | 'checking'>('checking')
 
   const models = [
+    'Google Gemini Flash',
     'Claude 3.5 Sonnet + R1',
     'DeepSeek R1',
     'GPT-4o',

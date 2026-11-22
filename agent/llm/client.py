@@ -140,7 +140,9 @@ class LLMClient:
         """Streams text chunks token-by-token from the active LLM provider, or falls back to intelligent local engine."""
         # 1. Google Gemini (via official OpenAI-compatible endpoint)
         if self.gemini_key:
-            gemini_model = model or "gemini-3.1-flash-lite-preview"
+            gemini_model = "gemini-3.1-flash-lite-preview"
+            if model and (model.startswith("gemini-") or model.startswith("gemma-")):
+                gemini_model = model
             async for token in self._stream_openai_compatible(
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai",
                 api_key=self.gemini_key,
@@ -154,10 +156,13 @@ class LLMClient:
 
         # 2. OpenAI (GPT-4o)
         if self.openai_key:
+            oa_model = "gpt-4o"
+            if model and (model.startswith("gpt-") or model.startswith("o1") or model.startswith("o3")):
+                oa_model = model
             async for token in self._stream_openai_compatible(
                 base_url="https://api.openai.com/v1",
                 api_key=self.openai_key,
-                model_name=model or "gpt-4o",
+                model_name=oa_model,
                 prompt=prompt,
                 system_prompt=system_prompt,
                 context_snippets=context_snippets,
@@ -167,10 +172,15 @@ class LLMClient:
 
         # 3. DeepSeek (DeepSeek-R1 / V3)
         if self.deepseek_key:
+            ds_model = "deepseek-chat"
+            if model and ("r1" in model.lower() or "reasoner" in model.lower()):
+                ds_model = "deepseek-reasoner"
+            elif model and model.startswith("deepseek-"):
+                ds_model = model
             async for token in self._stream_openai_compatible(
                 base_url="https://api.deepseek.com",
                 api_key=self.deepseek_key,
-                model_name=model or "deepseek-chat",
+                model_name=ds_model,
                 prompt=prompt,
                 system_prompt=system_prompt,
                 context_snippets=context_snippets,
@@ -180,10 +190,15 @@ class LLMClient:
 
         # 4. Groq (Llama 3.3 70B ultra fast)
         if self.groq_key:
+            groq_model = "llama-3.3-70b-versatile"
+            if model and ("r1" in model.lower() or "deepseek" in model.lower()):
+                groq_model = "deepseek-r1-distill-llama-70b"
+            elif model and (model.startswith("llama-") or model.startswith("mixtral-")):
+                groq_model = model
             async for token in self._stream_openai_compatible(
                 base_url="https://api.groq.com/openai/v1",
                 api_key=self.groq_key,
-                model_name=model or "llama-3.3-70b-versatile",
+                model_name=groq_model,
                 prompt=prompt,
                 system_prompt=system_prompt,
                 context_snippets=context_snippets,
