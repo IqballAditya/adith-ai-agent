@@ -7,6 +7,7 @@ import re
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from agent.indexer import CodebaseIndexer
+from agent.llm.client import LLMClient, get_default_llm_client
 from agent.memory import SearchResult, VectorStore
 from agent.parser import ASTParser, CodeSymbol
 
@@ -177,6 +178,7 @@ class AgentOrchestrator:
         self.vector_store = vector_store or VectorStore()
         self.indexer = indexer or CodebaseIndexer(vector_store=self.vector_store)
         self.llm_adapter = llm_adapter
+        self.llm_client = get_default_llm_client()
 
     async def process_prompt(
         self,
@@ -262,6 +264,7 @@ class AgentOrchestrator:
 
         # 3. Stream conversational message tokens
         is_mod = _is_modification_request(prompt)
+        total_msg_tokens = 0
         if is_mod:
             message_chunks = [
                 "I have analyzed your workspace context and identified the requested changes.\n\n",
@@ -270,15 +273,23 @@ class AgentOrchestrator:
                 "- Formatted unified diff patch for your review.\n\n",
                 "Please review the diff below and accept or reject the proposal.",
             ]
+            for chunk in message_chunks:
+                yield {"type": "message", "content": chunk}
+                total_msg_tokens += len(chunk.split())
         else:
-            message_chunks = [
-                "I have reviewed the codebase structure and symbols in this workspace.\n\n",
-                f"The workspace contains active definitions and functions relevant to your query: '{prompt}'.\n",
-                "Let me know if you would like me to propose code modifications or add unit tests.",
-            ]
-
-        for chunk in message_chunks:
-            yield {"type": "message", "content": chunk}
+            context_snip = None
+            if search_results:
+                context_snip = "\n".join(
+                    f"- {r.symbol_name} ({r.file_path}:{r.start_line}):\n{r.raw_code}"
+                    for r in search_results[:3]
+                )
+            async for chunk in self.llm_client.stream_response(
+                prompt=prompt,
+                context_snippets=context_snip,
+                model=model,
+            ):
+                yield {"type": "message", "content": chunk}
+                total_msg_tokens += len(chunk.split())
 
         # 4. Generate Diff if modification was requested
         if is_mod and target_file:
@@ -300,7 +311,7 @@ class AgentOrchestrator:
 
         # 5. Emit Done event with token usage
         prompt_tokens = max(12, len(prompt.split()) * 3)
-        completion_tokens = max(35, sum(len(c.split()) for c in message_chunks) + (40 if is_mod else 0))
+        completion_tokens = max(35, total_msg_tokens + (40 if is_mod else 0))
         yield {
             "type": "done",
             "usage": {
