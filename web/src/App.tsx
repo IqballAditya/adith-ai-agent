@@ -170,6 +170,50 @@ export const App: React.FC = () => {
     [tabs]
   )
 
+  // Save active file content back to disk via Gateway
+  const handleSaveFile = useCallback(
+    async (path: string) => {
+      const tab = tabs.find((t) => t.path === path)
+      if (!tab) return
+
+      try {
+        let original = ''
+        try {
+          const checkRes = await fetch(`/api/file?path=${encodeURIComponent(path)}`)
+          if (checkRes.ok) {
+            original = await checkRes.text()
+          }
+        } catch {
+          // If file does not exist on disk, original remains empty
+        }
+
+        const res = await fetch('/api/diff/accept', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path,
+            original,
+            modified: tab.content,
+          }),
+        })
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          console.error(`Save failed: ${errData.error || res.statusText}`)
+          return
+        }
+
+        // Clear dirty state on success
+        setTabs((prev) =>
+          prev.map((t) => (t.path === path ? { ...t, isDirty: false } : t))
+        )
+      } catch (err: any) {
+        console.error('Error saving file:', err)
+      }
+    },
+    [tabs]
+  )
+
   // Keyboard shortcut Ctrl+Enter to trigger agent or open chat
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -356,6 +400,7 @@ export const App: React.FC = () => {
             onSelectTab={setActivePath}
             onCloseTab={handleCloseTab}
             onChangeContent={handleChangeContent}
+            onSave={handleSaveFile}
           />
 
           {showTerminal && (

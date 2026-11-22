@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Send,
   Sparkles,
@@ -212,23 +212,54 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }
 
-  const handleAcceptDiff = async (messageId: string, diff: DiffSuggestion) => {
-    setAcceptingPath(diff.path)
-    try {
-      const ok = await onAcceptDiff(diff.path, diff.modified)
-      if (ok) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === messageId && msg.diff
-              ? { ...msg, diff: { ...msg.diff, status: 'applied' } }
-              : msg
+  const handleAcceptDiff = useCallback(
+    async (messageId: string, diff: DiffSuggestion) => {
+      setAcceptingPath(diff.path)
+      try {
+        const ok = await onAcceptDiff(diff.path, diff.modified)
+        if (ok) {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === messageId && msg.diff
+                ? { ...msg, diff: { ...msg.diff, status: 'applied' } }
+                : msg
+            )
           )
-        )
+        }
+      } finally {
+        setAcceptingPath(null)
       }
-    } finally {
-      setAcceptingPath(null)
+    },
+    [onAcceptDiff, setMessages]
+  )
+
+  // Quick acceptance via Tab key when not typing in an input or textarea
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        const activeEl = document.activeElement as HTMLElement | null
+        const isEditing =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.isContentEditable)
+
+        if (!isEditing) {
+          const pendingMsg = [...messages]
+            .reverse()
+            .find((m) => m.diff && m.diff.status === 'pending')
+
+          if (pendingMsg && pendingMsg.diff) {
+            e.preventDefault()
+            handleAcceptDiff(pendingMsg.id, pendingMsg.diff)
+          }
+        }
+      }
     }
-  }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [messages, handleAcceptDiff])
 
   const handleRejectDiff = (messageId: string) => {
     setMessages((prev) =>
