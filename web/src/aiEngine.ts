@@ -17,7 +17,7 @@ export function getGeminiKey(): string {
     if (saved && saved.trim()) return saved.trim()
   }
   const metaEnv = (import.meta as any)?.env?.VITE_GEMINI_API_KEY
-  if (metaEnv) {
+  if (metaEnv && String(metaEnv).trim()) {
     return String(metaEnv).trim()
   }
   return ''
@@ -65,14 +65,15 @@ export async function askLiveAI(prompt: string, model: string): Promise<LocalAIR
   // 2. Call Google Gemini API Live if key exists
   if (key) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${key}`
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${key}`
       const body = {
         system_instruction: {
           parts: [
             {
               text: `You are ADITH AI, an advanced, highly capable AI software engineer and developer companion in ADITH AI STUDIO created for Iqbal Aditya.
-Always respond helpfully, naturally, and politely in Indonesian or English matching the user.
+Always respond helpfully, naturally, and warmly in Indonesian or English matching the user.
 Answer all questions thoroughly and smartly—from coding, computer science, software architecture, general knowledge, history, to casual conversation.
+Never be robotic or stiff. If the user asks general questions or says something casual like 'mau nanya', welcome them warmly and ask how you can help.
 If the user asks to write or modify code, provide clean, idiomatic code in markdown code blocks.`,
             },
           ],
@@ -116,7 +117,7 @@ If the user asks to write or modify code, provide clean, idiomatic code in markd
           }
 
           return {
-            reasoning: `Connected to Google Gemini Live API (gemini-3.5-flash-lite).\nInput query: "${p}"\nModel: ${model || 'Google Gemini Flash'}\nReal-time generative completion received.`,
+            reasoning: `Connected to Google Gemini Live API (gemini-3.1-flash-lite-preview).\nInput query: "${p}"\nModel: ${model || 'Google Gemini Flash'}\nReal-time generative completion received.`,
             content: text,
             diff: diffData,
           }
@@ -145,23 +146,66 @@ export function generateLocalAIResponse(prompt: string, model: string): LocalAIR
     }
   }
 
-  // 2. Greetings
-  if (['woi', 'woy', 'oi', 'oy', 'halo', 'hallo', 'hai', 'hi', 'hey', 'hei', 'pagi', 'siang', 'sore', 'malam', 'p', 'bro'].some(w => pLower === w || pLower.startsWith(w + ' '))) {
+  // 2. Questions / Inquiries ("mau nanya", "mau tanya", "boleh nanya", "bisa bantu", etc.)
+  if (
+    [
+      'mau nanya',
+      'mau tanya',
+      'boleh nanya',
+      'boleh tanya',
+      'nanya dong',
+      'tanya dong',
+      'ada pertanyaan',
+      'pengen nanya',
+      'pengen tanya',
+      'bisa nanya',
+      'bisa tanya',
+      'tanya',
+      'nanya',
+    ].some((w) => pLower === w || pLower.startsWith(w + ' ') || pLower.endsWith(' ' + w))
+  ) {
+    return {
+      reasoning: `User query indicates intention to ask a question: "${p}"\nContext: Conversational welcoming mode\nEncouraging user to present their question.`,
+      content: `Halo Iqbal! Tentu saja, silakan mau tanya apa? 😊\n\nKamu bisa bertanya tentang apa pun—mulai dari kodingan, debugging bug, arsitektur software, cara kerja sistem, sains, matematika, hingga topik santai lainnya. Tanyakan saja langsung! 🚀`,
+    }
+  }
+
+  // 3. Greetings
+  if (
+    [
+      'woi',
+      'woy',
+      'oi',
+      'oy',
+      'halo',
+      'hallo',
+      'hai',
+      'hi',
+      'hey',
+      'hei',
+      'pagi',
+      'siang',
+      'sore',
+      'malam',
+      'p',
+      'bro',
+    ].some((w) => pLower === w || pLower.startsWith(w + ' '))
+  ) {
     return {
       reasoning: `User initiated friendly greeting: "${p}"\nContext: Conversational greeting mode\nGenerating polite, responsive assistant opening.`,
       content: `Halo Iqbal! 👋 Senang bertemu denganmu.\n\nSaya **ADITH AI**, asisten coding dan partner berpikir pribadimu di studio ini.\n\nAda yang bisa saya bantu hari ini? Kamu bisa menyuruh saya menulis kode, refactor fungsi, menjawab pertanyaan seputar sains, sejarah, tokoh dunia, matematika, atau sekadar ngobrol santai! 🚀`,
     }
   }
 
-  // 3. Identity
-  if (['kamu siapa', 'siapa kamu', 'who are you', 'tentang kamu', 'kamu itu apa'].some(w => pLower.includes(w))) {
+  // 4. Identity
+  if (['kamu siapa', 'siapa kamu', 'who are you', 'tentang kamu', 'kamu itu apa'].some((w) => pLower.includes(w))) {
     return {
       reasoning: `Intent: System identification request\nQuery: "${p}"\nRetrieving ADITH AI Studio capabilities and architecture specification.`,
       content: `Saya adalah **ADITH AI**, sebuah AI Coding Assistant & Studio Engine mandiri yang dirancang khusus untuk Iqbal Aditya.\n\n### Kemampuan Utama Saya:\n1. **Codebase Understanding**: Memahami struktur file, fungsi, dan class di project ini.\n2. **Monaco Code Editor**: Membuka dan mengedit file langsung di editor sebelah kanan.\n3. **Safe Diff Execution**: Mengusulkan perubahan kode (diff patch) yang bisa kamu terapkan dengan tombol **Accept Changes**.\n4. **Cloud Sandbox Terminal**: Menjalankan perintah seperti \`ls\`, \`cat\`, dan \`python\` di terminal browser.\n5. **General Conversation**: Menjawab segala pertanyaan dari sains, sejarah, tokoh, matematika, hingga tugas coding!`,
     }
   }
 
-  // 4. Leaders: Prabowo, Jokowi, etc.
+  // 5. Leaders: Prabowo, Jokowi, etc.
   if (pLower.includes('prabowo')) {
     return {
       reasoning: `Entity identified: H. Prabowo Subianto\nDomain: Indonesian Leadership & Politics\nQuery: "${p}"\nFormulating comprehensive biography.`,
@@ -176,7 +220,7 @@ export function generateLocalAIResponse(prompt: string, model: string): LocalAIR
     }
   }
 
-  // 5. Code Generation: Calculator
+  // 6. Code Generation: Calculator
   if (pLower.includes('kalkulator') || pLower.includes('calculator')) {
     const originalCode = `# Example Calculator Module\nclass Calculator:\n    def add(self, a: float, b: float) -> float:\n        return a + b\n`
     const modifiedCode = `# Example Calculator Module\nclass Calculator:\n    """A clean, robust calculator engine."""\n    def add(self, a: float, b: float) -> float:\n        return a + b\n\n    def subtract(self, a: float, b: float) -> float:\n        return a - b\n\n    def multiply(self, a: float, b: float) -> float:\n        return a * b\n\n    def divide(self, a: float, b: float) -> float:\n        if b == 0:\n            raise ValueError("Division by zero is undefined")\n        return a / b\n\n    def power(self, base: float, exp: float) -> float:\n        return base ** exp\n\nif __name__ == "__main__":\n    calc = Calculator()\n    print("10 + 5 =", calc.add(10, 5))\n    print("10 * 5 =", calc.multiply(10, 5))\n`
@@ -192,9 +236,9 @@ export function generateLocalAIResponse(prompt: string, model: string): LocalAIR
     }
   }
 
-  // 6. General Open-Ended Discussion
+  // 7. General Open-Ended Discussion
   return {
-    reasoning: `Analyzing intent: "${p}"\nModel: ${model}\nContext: Workspace repository and general assistant capability\nFormulating natural, conversational response.`,
-    content: `Mengenai **"${p}"**:\n\nIni adalah topik yang menarik! Sebagai asisten pribadimu di **ADITH AI STUDIO**, saya siap mendiskusikan topik apa pun secara mendalam—mulai dari arsitektur software, algoritma pemrograman, hingga tanya-jawab santai.\n\n*(💡 Tips: Klik ikon Gear/Settings di pojok kiri bawah untuk memasukkan Gemini API Key agar saya dapat menjawab jutaan topik umum lainnya secara live!)*`,
+    reasoning: `Analyzing intent: "${p}"\nModel: ${model}\nContext: General conversational assistant`,
+    content: `Hai Iqbal! Terkait pertanyaanmu tentang **"${p}"**:\n\nSaya siap mendiskusikan topik ini secara mendalam bersama kamu. Apakah kamu ingin saya menjelaskan konsepnya, membuatkan contoh kode implementasinya, atau menganalisisnya langkah demi langkah? Beritahu saya bagian mana yang paling ingin kamu bahas! 💡`,
   }
 }
