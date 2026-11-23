@@ -1,7 +1,10 @@
 # setup-autostart.ps1 - Mengatur agar Adith AI Studio otomatis aktif setiap kali Windows menyala
 param([switch]$Uninstall)
 
-$startupFolder = [System.Environment]::GetFolderPath('Startup')
+$startupFolder = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Startup)
+if (-not $startupFolder -or -not (Test-Path $startupFolder)) {
+    $startupFolder = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup"
+}
 $shortcutPath = Join-Path $startupFolder "AdithAIStudioAutoStart.lnk"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $ScriptDir) { $ScriptDir = (Get-Location).Path }
