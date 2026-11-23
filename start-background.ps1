@@ -1,4 +1,6 @@
-# start-background.ps1 - Menjalankan Adith AI Studio di background tanpa jendela terminal
+# start-background.ps1 - Menjalankan Adith AI Studio di background dan membuka browser
+param([switch]$NoBrowser)
+
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $ScriptDir) { $ScriptDir = (Get-Location).Path }
 
@@ -21,4 +23,17 @@ if (-not $connGw) {
     }
 }
 
-Write-Host "ADITH AI STUDIO aktif di background: http://127.0.0.1:8090" -ForegroundColor Green
+# 3. Tunggu hingga gateway siap lalu buka browser otomatis jika tidak dinonaktifkan
+$gwUrl = "http://127.0.0.1:$gatewayPort"
+if (-not $NoBrowser) {
+    for ($i = 0; $i -lt 15; $i++) {
+        Start-Sleep -Milliseconds 500
+        try {
+            $resp = Invoke-RestMethod -Uri "$gwUrl/health" -Method Get -TimeoutSec 1 -ErrorAction Stop
+            if ($resp.status -eq "ok") { break }
+        } catch {}
+    }
+    Start-Process $gwUrl
+}
+
+Write-Host "ADITH AI STUDIO aktif di background: $gwUrl" -ForegroundColor Green
